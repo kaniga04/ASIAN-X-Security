@@ -1,34 +1,41 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
+// AUTH PAGES
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 
+// DASHBOARDS
 import AdminDashboard from "./pages/AdminDashboard";
 import UserDashboard from "./pages/UserDashboard";
 
-import ProtectedRoute from "./components/ProtectedRoute";
-
+// ADMIN PAGES
 import Users from "./pages/Users";
 import LoginLogs from "./pages/LoginLogs";
 import Anomalies from "./pages/Anomalies";
 import FraudDashboard from "./pages/FraudDashboard";
 
+// NEW FRAUD ANALYTICS PAGE
+import FraudDetection from "./pages/FraudDetection";
 
-// NEW PAGES
+// ACCOUNT PAGES
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import HelpCenter from "./pages/HelpCenter";
+
+// ROUTE PROTECTION
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
     <Router>
       <Routes>
 
-        {/* AUTH */}
+        {/* ================= AUTH ROUTES ================= */}
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* ADMIN DASHBOARD */}
+        {/* ================= ADMIN ROUTES ================= */}
+
         <Route
           path="/admin"
           element={
@@ -38,7 +45,6 @@ function App() {
           }
         />
 
-        {/* ADMIN PAGES */}
         <Route
           path="/admin/users"
           element={
@@ -66,7 +72,7 @@ function App() {
           }
         />
 
-        {/* EXISTING FRAUD DASHBOARD */}
+        {/* FRAUD MONITORING DASHBOARD */}
         <Route
           path="/admin/fraud"
           element={
@@ -76,8 +82,18 @@ function App() {
           }
         />
 
-        
-        {/* ACCOUNT PAGES */}
+        {/* ADVANCED FRAUD ANALYTICS */}
+        <Route
+          path="/admin/fraud-analytics"
+          element={
+            <ProtectedRoute role="admin">
+              <FraudDetection />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ================= ACCOUNT ================= */}
+
         <Route
           path="/admin/profile"
           element={
@@ -105,7 +121,8 @@ function App() {
           }
         />
 
-        {/* USER DASHBOARD */}
+        {/* ================= USER ROUTES ================= */}
+
         <Route
           path="/user"
           element={

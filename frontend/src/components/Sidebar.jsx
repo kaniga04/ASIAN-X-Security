@@ -91,6 +91,22 @@ function Sidebar({ onLogout }) {
             <AlertTriangle size={18} />
             Anomalies
           </NavLink>
+
+          {/* NEW FRAUD ANALYTICS */}
+          <NavLink
+            to="/admin/fraud-analytics"
+            className={({ isActive }) =>
+              `flex items-center gap-3 p-3 rounded-lg transition ${
+                isActive
+                  ? "bg-purple-600 text-white"
+                  : "hover:bg-slate-800"
+              }`
+            }
+          >
+            <ShieldCheck size={18} />
+            Fraud Analytics
+          </NavLink>
+
         </div>
 
         {/* ACCOUNT */}

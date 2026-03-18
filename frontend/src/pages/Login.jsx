@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
+import { ShieldCheck, Eye, EyeOff } from "lucide-react";
+import { motion } from "framer-motion";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -13,7 +15,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // ================= SUBMIT =================
+  // ================= LOGIN =================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -25,7 +27,6 @@ const Login = () => {
         { email, password }
       );
 
-      // Save token
       if (rememberMe) {
         localStorage.setItem("token", data.token);
         localStorage.setItem("user", JSON.stringify(data.user));
@@ -33,9 +34,6 @@ const Login = () => {
         sessionStorage.setItem("token", data.token);
         sessionStorage.setItem("user", JSON.stringify(data.user));
       }
-
-      console.log(data.user);
-
 
       navigate(data.user.role === "admin" ? "/admin" : "/user");
 
@@ -50,116 +48,144 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-100 via-blue-100 to-purple-100 px-4">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-100 via-blue-100 to-purple-100 relative px-4">
 
-        {/* Logo / Title */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">
-            Welcome Back 👋
-          </h1>
-          <p className="text-gray-500 mt-2 text-sm">
-            Please sign in to your account
-          </p>
-        </div>
+      {/* Glow Background */}
+      <div className="absolute top-20 left-20 w-72 h-72 bg-indigo-200 rounded-full blur-3xl opacity-40"></div>
+      <div className="absolute bottom-20 right-20 w-72 h-72 bg-purple-200 rounded-full blur-3xl opacity-40"></div>
 
-        {/* Error */}
-        {error && (
-          <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm">
-            {error}
-          </div>
-        )}
+      <motion.div
+        initial={{ opacity: 0, y: 25 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="w-full max-w-md"
+      >
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="bg-white shadow-2xl rounded-3xl p-8 border border-gray-100">
 
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
-            </label>
-            <input
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition"
-            />
+          {/* Logo */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-100 flex items-center justify-center mb-4">
+              <ShieldCheck className="w-9 h-9 text-indigo-600" />
+            </div>
+
+            <h1 className="text-2xl font-bold text-gray-800">
+              Asian‑X Security
+            </h1>
+
+            <p className="text-sm text-gray-500 mt-1">
+              AI‑Powered Login Anomaly Detection
+            </p>
           </div>
 
-          {/* Password */}
-          <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Password
-            </label>
+          {/* Error */}
+          {error && (
+            <div className="mb-5 p-3 text-sm bg-red-50 border border-red-200 text-red-600 rounded-xl">
+              {error}
+            </div>
+          )}
 
-            <input
-              type={showPassword ? "text" : "password"}
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition pr-12"
-            />
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
 
-            {/* Show / Hide Button */}
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-11 text-gray-500 hover:text-indigo-600 text-sm"
-            >
-              {showPassword ? "Hide" : "Show"}
-            </button>
-          </div>
+            {/* Email */}
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1 block">
+                Email Address
+              </label>
 
-          {/* Remember Me */}
-          <div className="flex items-center justify-between text-sm">
-            <label className="flex items-center space-x-2">
               <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={() => setRememberMe(!rememberMe)}
-                className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                type="email"
+                placeholder="admin@asianx.sec"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full h-11 px-4 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
               />
-              <span className="text-gray-600">Remember Me</span>
-            </label>
+            </div>
 
-            <Link
-              to="/forgot-password"
-              className="text-indigo-600 hover:underline"
+            {/* Password */}
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1 block">
+                Password
+              </label>
+
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full h-11 px-4 pr-10 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                >
+                  {showPassword ? (
+                    <EyeOff size={18} />
+                  ) : (
+                    <Eye size={18} />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Remember Me */}
+            <div className="flex items-center justify-between text-sm">
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={() => setRememberMe(!rememberMe)}
+                  className="w-4 h-4 accent-indigo-600"
+                />
+                <span className="text-gray-600">Remember me</span>
+              </label>
+
+              <Link
+                to="/forgot-password"
+                className="text-indigo-600 hover:underline"
+              >
+                Forgot password?
+              </Link>
+
+            </div>
+
+            {/* Login Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition"
             >
-              Forgot Password?
+              {loading ? "Signing In..." : "Sign In to Dashboard"}
+            </button>
+
+          </form>
+
+          {/* Register */}
+          <p className="text-center text-sm text-gray-600 mt-6">
+            Don’t have an account?{" "}
+            <Link
+              to="/register"
+              className="text-indigo-600 font-medium hover:underline"
+            >
+              Register
             </Link>
-          </div>
+          </p>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {loading ? "Signing In..." : "Sign In"}
-          </button>
-
-        </form>
+        </div>
 
         {/* Footer */}
-        <div className="mt-6 text-center text-sm text-gray-600">
-          Don’t have an account?{" "}
-          <Link
-            to="/register"
-            className="text-indigo-600 font-medium hover:underline"
-          >
-            Create Account
-          </Link>
-        </div>
-
-        <p className="text-center text-xs text-gray-400 mt-8">
-          © 2026 Secure Login System
+        <p className="text-center text-xs text-gray-400 mt-6">
+          © 2026 Asian‑X Security • Cyber Threat Monitoring Platform
         </p>
 
-      </div>
+      </motion.div>
     </div>
   );
 };

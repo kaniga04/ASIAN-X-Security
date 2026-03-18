@@ -9,7 +9,6 @@ const LoginLog = require("../models/LoginLog");
 
 const SECRET = "SECRETKEY123";
 
-
 // ================= ML RISK SCORING =================
 function calculateMLScore(failedAttempts, newIP, lateNight) {
 
@@ -23,7 +22,6 @@ function calculateMLScore(failedAttempts, newIP, lateNight) {
 
   return Math.min(score, 1);
 }
-
 
 // ================= MITRE MAPPING =================
 function getMitreMapping(type) {
@@ -55,8 +53,6 @@ function getMitreMapping(type) {
 
   return mitreMap[type] || null;
 }
-
-
 
 // ================= REGISTER =================
 router.post("/register", async (req, res) => {
@@ -106,8 +102,6 @@ router.post("/register", async (req, res) => {
 
 });
 
-
-
 // ================= LOGIN =================
 router.post("/login", async (req, res) => {
 
@@ -133,13 +127,14 @@ router.post("/login", async (req, res) => {
     const geo = geoip.lookup(ipAddress);
     const country = geo ? geo.country : "Unknown";
 
+    const io = req.app.get("io");
 
     // ================= USER NOT FOUND =================
     if (!user) {
 
       const mitre = getMitreMapping("brute_force");
 
-      await LoginLog.create({
+      const log = await LoginLog.create({
 
         email,
         role: "guest",
@@ -161,12 +156,13 @@ router.post("/login", async (req, res) => {
 
       });
 
+      io.emit("attackDetected", log);
+
       return res.status(400).json({
         message: "Invalid credentials"
       });
 
     }
-
 
     // ================= PASSWORD CHECK =================
     const isMatch = await bcrypt.compare(password, user.password);
@@ -175,7 +171,7 @@ router.post("/login", async (req, res) => {
 
       const mitre = getMitreMapping("brute_force");
 
-      await LoginLog.create({
+      const log = await LoginLog.create({
 
         userId: user._id,
         email: user.email,
@@ -198,12 +194,13 @@ router.post("/login", async (req, res) => {
 
       });
 
+      io.emit("attackDetected", log);
+
       return res.status(400).json({
         message: "Invalid credentials"
       });
 
     }
-
 
     // ================= LOGIN SUCCESS =================
 
@@ -221,8 +218,6 @@ router.post("/login", async (req, res) => {
 
     let mitre = null;
 
-
-    // ---------- NEW IP DETECTION ----------
     if (!knownIPs.includes(ipAddress) && previousLogins.length > 0) {
 
       riskScore += 30;
@@ -233,8 +228,6 @@ router.post("/login", async (req, res) => {
 
     }
 
-
-    // ---------- LATE NIGHT LOGIN ----------
     const hour = new Date().getHours();
 
     if (hour < 6) {
@@ -248,8 +241,6 @@ router.post("/login", async (req, res) => {
 
     }
 
-
-    // ---------- FAILED ATTEMPTS ----------
     const failedAttempts = await LoginLog.countDocuments({
 
       ipAddress,
@@ -261,16 +252,12 @@ router.post("/login", async (req, res) => {
 
     });
 
-
-    // ---------- ML SCORE ----------
     const mlScore = calculateMLScore(
       failedAttempts,
       newIP,
       lateNight
     );
 
-
-    // ================= SAVE LOGIN LOG =================
     await LoginLog.create({
 
       userId: user._id,
@@ -294,8 +281,6 @@ router.post("/login", async (req, res) => {
 
     });
 
-
-    // ================= JWT TOKEN =================
     const token = jwt.sign(
 
       {
@@ -308,7 +293,6 @@ router.post("/login", async (req, res) => {
       { expiresIn: "1d" }
 
     );
-
 
     res.json({
 
@@ -337,8 +321,6 @@ router.post("/login", async (req, res) => {
   }
 
 });
-
-
 
 // ================= LOGOUT =================
 router.post("/logout", async (req, res) => {
@@ -405,8 +387,6 @@ router.post("/logout", async (req, res) => {
 
 });
 
-
-
 // ================= GET USERS =================
 router.get("/users", async (req, res) => {
 
@@ -416,8 +396,6 @@ router.get("/users", async (req, res) => {
 
 });
 
-
-
 // ================= GET LOGIN LOGS =================
 router.get("/logs", async (req, res) => {
 
@@ -426,72 +404,6 @@ router.get("/logs", async (req, res) => {
   });
 
   res.json(logs);
-
-});
-
-// ================= BLOCK / UNBLOCK USER =================
-router.put("/users/block/:id", async (req, res) => {
-
-  try {
-
-    const { isBlocked } = req.body;
-
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found"
-      });
-    }
-
-    user.isBlocked = isBlocked;
-
-    await user.save();
-
-    res.json({
-      message: "User status updated"
-    });
-
-  } catch (error) {
-
-    console.error(error);
-
-    res.status(500).json({
-      message: "Server error"
-    });
-
-  }
-
-});
-
-// ================= DELETE USER =================
-router.delete("/users/:id", async (req, res) => {
-
-  try {
-
-    const user = await User.findById(req.params.id);
-
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found"
-      });
-    }
-
-    await User.findByIdAndDelete(req.params.id);
-
-    res.json({
-      message: "User deleted successfully"
-    });
-
-  } catch (error) {
-
-    console.error(error);
-
-    res.status(500).json({
-      message: "Server error"
-    });
-
-  }
 
 });
 

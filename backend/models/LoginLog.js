@@ -15,14 +15,18 @@ const loginLogSchema = new mongoose.Schema(
       trim: true
     },
 
+    // 🌐 IP ADDRESS
     ipAddress: {
       type: String,
-      default: null
+      default: null,
+  
     },
 
+    // 🌍 GEO LOCATION
     country: {
       type: String,
-      default: "Unknown"
+      default: "Unknown",
+  
     },
 
     city: {
@@ -35,13 +39,14 @@ const loginLogSchema = new mongoose.Schema(
       default: null
     },
 
+    // LOGIN STATUS
     status: {
       type: String,
       enum: ["success", "failed"],
       required: true
     },
 
-    // 📊 Risk & ML
+    // 📊 Risk Analysis
     riskScore: {
       type: Number,
       default: 0
@@ -76,9 +81,10 @@ const loginLogSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Index for faster dashboard analytics
+// 🔎 Indexes for SIEM dashboard analytics
 loginLogSchema.index({ createdAt: -1 });
 loginLogSchema.index({ email: 1 });
 loginLogSchema.index({ ipAddress: 1 });
+loginLogSchema.index({ country: 1 });
 
 module.exports = mongoose.model("LoginLog", loginLogSchema);

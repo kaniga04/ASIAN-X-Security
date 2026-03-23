@@ -23,7 +23,7 @@ function Topbar() {
     try {
       if (token) {
         await axios.post(
-          "http://localhost:5000/api/auth/logout",
+          "https://asian-x-security.onrender.com/api/auth/login",
           {},
           {
             headers: {

@@ -46,8 +46,8 @@ const FraudDetection = () => {
     fetchCountries();
     fetchTopIPs();
 
-    // 🔥 Connect to backend socket
-    const socket = io("http://localhost:5000");
+    // 🔥 Connect to backend socketasian-x-security.onrender.com
+    const socket = io("https://asian-x-security.onrender.com");
 
     // 🔥 Listen for real-time attacks
     socket.on("attackDetected", (data) => {
@@ -71,7 +71,7 @@ const FraudDetection = () => {
     try {
 
       const res = await axios.get(
-        "http://localhost:5000/api/fraud/attack-countries"
+        "https://asian-x-security.onrender.com/api/fraud/attack-countries"
       );
 
       const formatted = res.data.map(item => ({
@@ -96,7 +96,7 @@ const FraudDetection = () => {
     try {
 
       const res = await axios.get(
-        "http://localhost:5000/api/fraud/top-ips"
+        "https://asian-x-security.onrender.com/api/fraud/top-ips"
       );
 
       const data = res.data;

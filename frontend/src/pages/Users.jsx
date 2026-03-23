@@ -24,7 +24,7 @@ function Users() {
     try {
 
       const res = await axios.get(
-        "http://localhost:5000/api/auth/users",
+        "https://asian-x-security.onrender.com/api/auth/users",
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -60,7 +60,7 @@ function Users() {
     try {
 
       await axios.delete(
-        `http://localhost:5000/api/auth/users/${id}`,
+        `http://asian-x-security.onrender.com/api/auth/users/${id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -86,7 +86,7 @@ function Users() {
     try {
 
       await axios.put(
-        `http://localhost:5000/api/auth/users/block/${id}`,
+        `http://asian-x-security.onrender.com/api/auth/users/block/${id}`,
         { isBlocked: !isBlocked },
         {
           headers: {

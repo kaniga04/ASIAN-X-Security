@@ -13,7 +13,7 @@ function AdminChatbot() {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/auth/logs");
+        const res = await axios.get("https://asian-x-security.onrender.com/api/auth/login");
         setLogs(res.data);
       } catch (err) {
         console.error("Error fetching logs:", err);

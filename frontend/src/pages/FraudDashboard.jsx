@@ -13,7 +13,7 @@ function FraudDashboard() {
 
   const fetchClusters = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/fraud/clusters");
+      const res = await axios.get("http://asian-x-security.onrender.com/api/fraud/clusters");
       setClusters(res.data);
     } catch (error) {
       console.error("Error fetching fraud clusters:", error);

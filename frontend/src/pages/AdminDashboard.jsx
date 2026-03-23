@@ -25,11 +25,11 @@ function AdminDashboard() {
       try {
 
         const logsRes = await axios.get(
-          "http://localhost:5000/api/auth/logs"
+          "https://asian-x-security.onrender.com/api/auth/logs"
         );
 
         const usersRes = await axios.get(
-          "http://localhost:5000/api/auth/users"
+          "https://asian-x-security.onrender.com/api/auth/users"
         );
 
         setLogs(logsRes.data);

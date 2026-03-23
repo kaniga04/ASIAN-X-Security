@@ -10,17 +10,22 @@ const server = http.createServer(app);
 
 /* ================= CORS CONFIG ================= */
 
-// Allow frontend URL in production
+// ✅ Allowed frontend URLs
 const allowedOrigins = [
   "http://localhost:3000", // local frontend
-  process.env.FRONTEND_URL // deployed frontend (Netlify later)
+  process.env.FRONTEND_URL // deployed frontend (Vercel)
 ];
 
+// ✅ CORS middleware
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    // allow requests with no origin (like Postman)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.log("❌ Blocked by CORS:", origin);
       callback(new Error("Not allowed by CORS"));
     }
   },
@@ -31,22 +36,24 @@ app.use(express.json());
 
 /* ================= SOCKET.IO ================= */
 
+// ✅ Use same CORS restriction for socket
 const io = new Server(server, {
   cors: {
-    origin: "*", // you can restrict later
-    methods: ["GET", "POST"]
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
 io.on("connection", (socket) => {
-  console.log("Client connected:", socket.id);
+  console.log("🔌 Client connected:", socket.id);
 
   socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
+    console.log("❌ Client disconnected:", socket.id);
   });
 });
 
-/* Make socket available globally */
+/* Make socket globally available */
 app.set("io", io);
 
 /* ================= DATABASE ================= */
@@ -54,9 +61,9 @@ app.set("io", io);
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-    console.log("MongoDB Atlas Connected 🚀");
+    console.log("✅ MongoDB Atlas Connected");
   } catch (err) {
-    console.error("MongoDB Connection Error ❌", err.message);
+    console.error("❌ MongoDB Connection Error:", err.message);
     process.exit(1);
   }
 };
@@ -84,5 +91,5 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });

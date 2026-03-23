@@ -12,15 +12,18 @@ function Anomalies() {
 
   useEffect(() => {
     fetchLogs();
+
+    // 🔥 Auto refresh every 10 sec
     const interval = setInterval(fetchLogs, 10000);
     return () => clearInterval(interval);
+
   }, []);
 
   const fetchLogs = async () => {
     try {
 
       const res = await axios.get(
-        "http://localhost:5000/api/auth/logs"
+        "https://asian-x-security.onrender.com/api/auth/logs"
       );
 
       const anomalyData = res.data.filter(log => log.isAnomaly);
@@ -35,7 +38,6 @@ function Anomalies() {
   };
 
   // ===== Severity =====
-
   const getSeverity = (riskScore) => {
     if (riskScore >= 80) return "critical";
     if (riskScore >= 50) return "medium";
@@ -43,30 +45,23 @@ function Anomalies() {
   };
 
   // ===== Resolve =====
-
   const resolveAnomaly = async (id) => {
-
     try {
-
       await axios.put(
-        `http://localhost:5000/api/auth/logs/resolve/${id}`
+        `https://asian-x-security.onrender.com/api/auth/logs/resolve/${id}`
       );
-
       fetchLogs();
-
     } catch (error) {
       console.error(error);
     }
-
   };
 
   // ===== Export CSV =====
-
   const exportCSV = () => {
 
     const rows = logs.map(log => ({
       Email: log.email,
-      IP: log.ipAddress,
+      IP: log.ipAddress?.split(",")[0].trim(), // ✅ FIXED HERE
       Risk: log.riskScore,
       Status: log.status,
       Time: new Date(log.loginTime).toLocaleString()
@@ -91,7 +86,6 @@ function Anomalies() {
 
     document.body.appendChild(link);
     link.click();
-
   };
 
   const filteredLogs = logs
@@ -105,17 +99,14 @@ function Anomalies() {
     );
 
   if (loading) {
-
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="animate-spin h-12 w-12 border-4 border-red-600 border-t-transparent rounded-full"></div>
       </div>
     );
-
   }
 
   return (
-
     <div className="flex min-h-screen bg-gray-100">
 
       <Sidebar />
@@ -127,19 +118,16 @@ function Anomalies() {
         <main className="p-6 space-y-6">
 
           {/* Header */}
-
           <div>
             <h2 className="text-2xl font-bold">
               Anomaly Detection
             </h2>
-
             <p className="text-gray-500 text-sm">
               AI-detected abnormal login behaviors
             </p>
           </div>
 
           {/* Controls */}
-
           <div className="flex flex-wrap gap-4 justify-between">
 
             <input
@@ -171,15 +159,12 @@ function Anomalies() {
           </div>
 
           {/* Table */}
-
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
 
             <table className="w-full text-sm">
 
               <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
-
                 <tr>
-
                   <th className="px-6 py-3 text-left">User</th>
                   <th className="px-6 py-3 text-left">IP Address</th>
                   <th className="px-6 py-3 text-left">Country</th>
@@ -189,19 +174,18 @@ function Anomalies() {
                   <th className="px-6 py-3 text-left">MITRE Technique</th>
                   <th className="px-6 py-3 text-left">Time</th>
                   <th className="px-6 py-3 text-left">Action</th>
-
                 </tr>
-
               </thead>
 
               <tbody>
-
                 {filteredLogs.map((log) => {
 
                   const severity = getSeverity(log.riskScore);
 
-                  return (
+                  // ✅ EXTRACT ONLY REAL IP
+                  const realIP = log.ipAddress?.split(",")[0].trim();
 
+                  return (
                     <tr
                       key={log._id}
                       className="border-t hover:bg-gray-50"
@@ -212,7 +196,7 @@ function Anomalies() {
                       </td>
 
                       <td className="px-6 py-4">
-                        {log.ipAddress}
+                        {realIP}
                       </td>
 
                       <td className="px-6 py-4">
@@ -220,21 +204,16 @@ function Anomalies() {
                       </td>
 
                       <td className="px-6 py-4">
-
                         <span className={`px-3 py-1 rounded-full text-xs font-medium
-                        
-                        ${
-                          severity === "critical"
-                            ? "bg-red-100 text-red-700"
-                            : severity === "medium"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-green-100 text-green-700"
-                        }`}>
-
+                          ${
+                            severity === "critical"
+                              ? "bg-red-100 text-red-700"
+                              : severity === "medium"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-green-100 text-green-700"
+                          }`}>
                           {log.riskScore}
-
                         </span>
-
                       </td>
 
                       <td className="px-6 py-4">
@@ -254,22 +233,17 @@ function Anomalies() {
                       </td>
 
                       <td className="px-6 py-4">
-
                         <button
                           onClick={() => resolveAnomaly(log._id)}
                           className="bg-red-600 text-white px-3 py-1 rounded text-xs"
                         >
                           Resolve
                         </button>
-
                       </td>
 
                     </tr>
-
                   );
-
                 })}
-
               </tbody>
 
             </table>
@@ -281,9 +255,7 @@ function Anomalies() {
       </div>
 
     </div>
-
   );
-
 }
 
 export default Anomalies;

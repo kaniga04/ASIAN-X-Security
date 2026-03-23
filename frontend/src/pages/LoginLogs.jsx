@@ -17,7 +17,7 @@ function LoginLogs() {
   const fetchLogs = async () => {
     try {
 
-      const res = await axios.get("http://localhost:5000/api/auth/logs");
+      const res = await axios.get("https://asian-x-security.onrender.com/api/auth/logs");
 
       setLogs(res.data);
 

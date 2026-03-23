@@ -12,7 +12,7 @@ function UserDashboard() {
   useEffect(() => {
     const fetchUserLogs = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/auth/logs");
+        const res = await axios.get("http://asian-x-security.onrender.com/api/auth/logs");
         
         // Filter logs for this user
         const userLogs = res.data.filter(

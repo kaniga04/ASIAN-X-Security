@@ -3,157 +3,88 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const geoip = require("geoip-lite");
+const UAParser = require("ua-parser-js");
 
 const User = require("../models/User");
 const LoginLog = require("../models/LoginLog");
 
 const SECRET = "SECRETKEY123";
 
-// ================= ML RISK SCORING =================
-function calculateMLScore(failedAttempts, newIP, lateNight) {
+// ================= GET CLIENT IP =================
+const getClientIP = (req) => {
+  const forwarded = req.headers["x-forwarded-for"];
 
-  let score = 0;
-
-  score += failedAttempts * 0.25;
-
-  if (newIP) score += 0.35;
-
-  if (lateNight) score += 0.2;
-
-  return Math.min(score, 1);
-}
-
-// ================= MITRE MAPPING =================
-function getMitreMapping(type) {
-
-  const mitreMap = {
-
-    brute_force: {
-      tactic: "Credential Access",
-      technique: "Brute Force",
-      techniqueId: "T1110",
-      reason: "Multiple failed login attempts detected from the same source."
-    },
-
-    new_ip: {
-      tactic: "Initial Access",
-      technique: "Valid Accounts",
-      techniqueId: "T1078",
-      reason: "Login from an unknown IP address not previously associated with this account."
-    },
-
-    late_night: {
-      tactic: "Defense Evasion",
-      technique: "Unusual Login Time",
-      techniqueId: "T1036",
-      reason: "Login attempt detected during unusual hours."
-    }
-
-  };
-
-  return mitreMap[type] || null;
-}
-
-// ================= REGISTER =================
-router.post("/register", async (req, res) => {
-
-  try {
-
-    const { name, email, password } = req.body;
-
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        message: "All fields required"
-      });
-    }
-
-    const existingUser = await User.findOne({
-      email: email.toLowerCase()
-    });
-
-    if (existingUser) {
-      return res.status(400).json({
-        message: "Email already exists"
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    await User.create({
-      name,
-      email: email.toLowerCase(),
-      password: hashedPassword,
-      role: "user"
-    });
-
-    res.status(201).json({
-      message: "Registered successfully"
-    });
-
-  } catch (error) {
-
-    console.error(error);
-
-    res.status(500).json({
-      message: "Server error"
-    });
-
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
   }
 
-});
+  return (
+    req.socket?.remoteAddress ||
+    req.connection?.remoteAddress ||
+    req.ip ||
+    "127.0.0.1"
+  );
+};
+
+// ================= GET DEVICE INFO =================
+const getDeviceInfo = (req) => {
+  const ua = req.headers["user-agent"];
+  const parser = new UAParser(ua);
+
+  const device = parser.getDevice();
+  const browser = parser.getBrowser();
+  const os = parser.getOS();
+
+  return {
+    device:
+      device.vendor || device.model
+        ? `${device.vendor || ""} ${device.model || ""}`
+        : "Desktop",
+
+    browser:
+      browser.name && browser.version
+        ? `${browser.name} ${browser.version}`
+        : "Unknown",
+
+    os:
+      os.name && os.version
+        ? `${os.name} ${os.version}`
+        : "Unknown"
+  };
+};
 
 // ================= LOGIN =================
 router.post("/login", async (req, res) => {
-
   try {
-
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({
-        message: "Email and password required"
-      });
-    }
 
     const user = await User.findOne({
       email: email.toLowerCase()
     });
 
-    const ipAddress =
-      req.headers["x-forwarded-for"] ||
-      req.socket.remoteAddress ||
-      "127.0.0.1";
-
+    const ipAddress = getClientIP(req);
     const geo = geoip.lookup(ipAddress);
     const country = geo ? geo.country : "Unknown";
 
+    const deviceInfo = getDeviceInfo(req);
+
     const io = req.app.get("io");
 
-    // ================= USER NOT FOUND =================
+    // USER NOT FOUND
     if (!user) {
 
-      const mitre = getMitreMapping("brute_force");
-
       const log = await LoginLog.create({
-
         email,
         role: "guest",
-
         ipAddress,
         country,
-
+        device: deviceInfo.device,
+        browser: deviceInfo.browser,
+        os: deviceInfo.os,
         status: "failed",
-
-        riskScore: 40,
-        mlScore: 0.5,
-
-        isAnomaly: true,
-
-        mitreTactic: mitre.tactic,
-        mitreTechnique: mitre.technique,
-        mitreTechniqueId: mitre.techniqueId,
-        anomalyReason: mitre.reason
-
+        riskScore: 60,
+        mlScore: 0.6,
+        isAnomaly: true
       });
 
       io.emit("attackDetected", log);
@@ -161,37 +92,26 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({
         message: "Invalid credentials"
       });
-
     }
 
-    // ================= PASSWORD CHECK =================
+    // PASSWORD CHECK
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
 
-      const mitre = getMitreMapping("brute_force");
-
       const log = await LoginLog.create({
-
         userId: user._id,
         email: user.email,
         role: user.role,
-
         ipAddress,
         country,
-
+        device: deviceInfo.device,
+        browser: deviceInfo.browser,
+        os: deviceInfo.os,
         status: "failed",
-
-        riskScore: 40,
-        mlScore: 0.5,
-
-        isAnomaly: true,
-
-        mitreTactic: mitre.tactic,
-        mitreTechnique: mitre.technique,
-        mitreTechniqueId: mitre.techniqueId,
-        anomalyReason: mitre.reason
-
+        riskScore: 60,
+        mlScore: 0.6,
+        isAnomaly: true
       });
 
       io.emit("attackDetected", log);
@@ -199,11 +119,9 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({
         message: "Invalid credentials"
       });
-
     }
 
-    // ================= LOGIN SUCCESS =================
-
+    // SUCCESS LOGIN
     const previousLogins = await LoginLog.find({
       userId: user._id,
       status: "success"
@@ -212,199 +130,56 @@ router.post("/login", async (req, res) => {
     const knownIPs = previousLogins.map(log => log.ipAddress);
 
     let riskScore = 10;
-    let newIP = false;
-    let lateNight = false;
     let isAnomaly = false;
 
-    let mitre = null;
-
     if (!knownIPs.includes(ipAddress) && previousLogins.length > 0) {
-
       riskScore += 30;
-      newIP = true;
       isAnomaly = true;
-
-      mitre = getMitreMapping("new_ip");
-
     }
-
-    const hour = new Date().getHours();
-
-    if (hour < 6) {
-
-      riskScore += 20;
-
-      lateNight = true;
-      isAnomaly = true;
-
-      mitre = getMitreMapping("late_night");
-
-    }
-
-    const failedAttempts = await LoginLog.countDocuments({
-
-      ipAddress,
-      status: "failed",
-
-      createdAt: {
-        $gte: new Date(Date.now() - 10 * 60 * 1000)
-      }
-
-    });
-
-    const mlScore = calculateMLScore(
-      failedAttempts,
-      newIP,
-      lateNight
-    );
 
     await LoginLog.create({
-
       userId: user._id,
       email: user.email,
       role: user.role,
-
       ipAddress,
       country,
-
+      device: deviceInfo.device,
+      browser: deviceInfo.browser,
+      os: deviceInfo.os,
       status: "success",
-
       riskScore,
-      mlScore,
-
-      isAnomaly,
-
-      mitreTactic: mitre ? mitre.tactic : null,
-      mitreTechnique: mitre ? mitre.technique : null,
-      mitreTechniqueId: mitre ? mitre.techniqueId : null,
-      anomalyReason: mitre ? mitre.reason : null
-
+      mlScore: 0.2,
+      isAnomaly
     });
 
     const token = jwt.sign(
-
-      {
-        id: user._id,
-        role: user.role
-      },
-
+      { id: user._id, role: user.role },
       SECRET,
-
       { expiresIn: "1d" }
-
     );
 
     res.json({
-
       message: "Login successful",
-
       token,
-
       user: {
         id: user._id,
         name: user.name,
         role: user.role
       }
-
     });
 
-  }
-
-  catch (error) {
-
+  } catch (error) {
     console.error(error);
-
     res.status(500).json({
       message: "Server error"
     });
-
   }
-
 });
 
-// ================= LOGOUT =================
-router.post("/logout", async (req, res) => {
-
-  try {
-
-    const token = req.headers.authorization?.split(" ")[1];
-
-    if (!token) {
-      return res.status(401).json({
-        message: "No token provided"
-      });
-    }
-
-    const decoded = jwt.verify(token, SECRET);
-
-    const user = await User.findById(decoded.id);
-
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found"
-      });
-    }
-
-    await LoginLog.create({
-
-      userId: user._id,
-      email: user.email,
-      role: user.role,
-
-      ipAddress: req.ip,
-      country: "Unknown",
-
-      status: "logout",
-
-      riskScore: 0,
-      mlScore: 0,
-
-      isAnomaly: false,
-
-      mitreTactic: "Session End",
-      mitreTechnique: "User Logout",
-      mitreTechniqueId: "T1078",
-
-      anomalyReason: "User logged out normally."
-
-    });
-
-    res.json({
-      message: "Logout successful"
-    });
-
-  }
-
-  catch (error) {
-
-    console.error(error);
-
-    res.status(401).json({
-      message: "Invalid token"
-    });
-
-  }
-
-});
-
-// ================= GET USERS =================
-router.get("/users", async (req, res) => {
-
-  const users = await User.find().select("-password");
-
-  res.json(users);
-
-});
-
-// ================= GET LOGIN LOGS =================
+// ================= GET LOGS =================
 router.get("/logs", async (req, res) => {
-
-  const logs = await LoginLog.find().sort({
-    createdAt: -1
-  });
-
+  const logs = await LoginLog.find().sort({ createdAt: -1 });
   res.json(logs);
-
 });
 
 module.exports = router;

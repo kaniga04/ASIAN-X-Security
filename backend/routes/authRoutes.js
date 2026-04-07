@@ -10,12 +10,12 @@ const LoginLog = require("../models/LoginLog");
 
 const SECRET = "SECRETKEY123";
 
-// ================= GET CLIENT IP =================
+/* ================= GET CLIENT IP ================= */
 const getClientIP = (req) => {
   const forwarded = req.headers["x-forwarded-for"];
 
   if (forwarded) {
-    return forwarded.split(",")[0].trim();
+    return forwarded.split(",")[0].trim(); // ✅ first IP only
   }
 
   return (
@@ -26,7 +26,7 @@ const getClientIP = (req) => {
   );
 };
 
-// ================= GET DEVICE INFO =================
+/* ================= GET DEVICE INFO ================= */
 const getDeviceInfo = (req) => {
   const ua = req.headers["user-agent"];
   const parser = new UAParser(ua);
@@ -53,7 +53,7 @@ const getDeviceInfo = (req) => {
   };
 };
 
-// ================= LOGIN =================
+/* ================= LOGIN ================= */
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -63,20 +63,21 @@ router.post("/login", async (req, res) => {
     });
 
     const ipAddress = getClientIP(req);
-    const geo = geoip.lookup(ipAddress);
+    const cleanIP = ipAddress.split(",")[0].trim();
+
+    const geo = geoip.lookup(cleanIP);
     const country = geo ? geo.country : "Unknown";
 
     const deviceInfo = getDeviceInfo(req);
 
     const io = req.app.get("io");
 
-    // USER NOT FOUND
+    /* ===== USER NOT FOUND ===== */
     if (!user) {
-
       const log = await LoginLog.create({
         email,
         role: "guest",
-        ipAddress,
+        ipAddress: cleanIP,
         country,
         device: deviceInfo.device,
         browser: deviceInfo.browser,
@@ -89,21 +90,18 @@ router.post("/login", async (req, res) => {
 
       io.emit("attackDetected", log);
 
-      return res.status(400).json({
-        message: "Invalid credentials"
-      });
+      return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    // PASSWORD CHECK
+    /* ===== PASSWORD CHECK ===== */
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-
       const log = await LoginLog.create({
         userId: user._id,
         email: user.email,
         role: user.role,
-        ipAddress,
+        ipAddress: cleanIP,
         country,
         device: deviceInfo.device,
         browser: deviceInfo.browser,
@@ -116,23 +114,23 @@ router.post("/login", async (req, res) => {
 
       io.emit("attackDetected", log);
 
-      return res.status(400).json({
-        message: "Invalid credentials"
-      });
+      return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    // SUCCESS LOGIN
+    /* ===== SUCCESS LOGIN ===== */
     const previousLogins = await LoginLog.find({
       userId: user._id,
       status: "success"
     });
 
-    const knownIPs = previousLogins.map(log => log.ipAddress);
+    const knownIPs = previousLogins.map(log =>
+      log.ipAddress.split(",")[0].trim()
+    );
 
     let riskScore = 10;
     let isAnomaly = false;
 
-    if (!knownIPs.includes(ipAddress) && previousLogins.length > 0) {
+    if (!knownIPs.includes(cleanIP) && previousLogins.length > 0) {
       riskScore += 30;
       isAnomaly = true;
     }
@@ -141,7 +139,7 @@ router.post("/login", async (req, res) => {
       userId: user._id,
       email: user.email,
       role: user.role,
-      ipAddress,
+      ipAddress: cleanIP,
       country,
       device: deviceInfo.device,
       browser: deviceInfo.browser,
@@ -170,19 +168,11 @@ router.post("/login", async (req, res) => {
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      message: "Server error"
-    });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-// ================= GET LOGS =================
-router.get("/logs", async (req, res) => {
-  const logs = await LoginLog.find().sort({ createdAt: -1 });
-  res.json(logs);
-});
-
-// ================= REGISTER =================
+/* ================= REGISTER ================= */
 router.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -211,10 +201,46 @@ router.post("/register", async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("REGISTER ERROR:", error); // 🔥 debug
     res.status(500).json({
       message: "Server error"
     });
+  }
+});
+
+/* ================= GET LOGS ================= */
+router.get("/logs", async (req, res) => {
+  const logs = await LoginLog.find().sort({ createdAt: -1 });
+  res.json(logs);
+});
+
+/* ================= GET USERS ================= */
+router.get("/users", async (req, res) => {
+  try {
+    const users = await User.find().select("-password"); // ✅ secure
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching users" });
+  }
+});
+
+/* ================= DASHBOARD STATS ================= */
+router.get("/stats", async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const totalLogins = await LoginLog.countDocuments();
+    const failedLogins = await LoginLog.countDocuments({ status: "failed" });
+    const anomalies = await LoginLog.countDocuments({ isAnomaly: true });
+
+    res.json({
+      totalUsers,
+      totalLogins,
+      failedLogins,
+      anomalies
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching stats" });
   }
 });
 

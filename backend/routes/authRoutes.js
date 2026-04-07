@@ -182,4 +182,40 @@ router.get("/logs", async (req, res) => {
   res.json(logs);
 });
 
+// ================= REGISTER =================
+router.post("/register", async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    const existingUser = await User.findOne({
+      email: email.toLowerCase()
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        message: "Email already exists"
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await User.create({
+      name,
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      role: "user"
+    });
+
+    res.status(201).json({
+      message: "Registered successfully"
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Server error"
+    });
+  }
+});
+
 module.exports = router;

@@ -340,4 +340,20 @@ router.post("/simulate-attack", async (req, res) => {
   }
 });
 
+/* ================= 📊 GET ALL LOGS ================= */
+router.get("/logs", async (req, res) => {
+  try {
+    const logs = await LoginLog.find()
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    console.log("✅ Logs fetched:", logs.length);
+
+    res.json(logs);
+  } catch (error) {
+    console.error("❌ FETCH LOGS ERROR:", error);
+    res.status(500).json({ message: "Error fetching logs" });
+  }
+});
+
 module.exports = router;

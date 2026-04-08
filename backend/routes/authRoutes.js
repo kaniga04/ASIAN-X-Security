@@ -105,7 +105,6 @@ router.post("/login", async (req, res) => {
     });
 
     const cleanIP = getClientIP(req);
-
     const geo = geoip.lookup(cleanIP);
     const country = geo ? geo.country : "Unknown";
 
@@ -129,6 +128,7 @@ router.post("/login", async (req, res) => {
         riskScore: 60,
         mlScore: 0.6,
         isAnomaly: true,
+        isSimulated: false, // ✅ FIX
         threatExplanation: explanation
       });
 
@@ -157,6 +157,7 @@ router.post("/login", async (req, res) => {
         riskScore: 60,
         mlScore: 0.6,
         isAnomaly: true,
+        isSimulated: false, // ✅ FIX
         threatExplanation: explanation
       });
 
@@ -166,7 +167,6 @@ router.post("/login", async (req, res) => {
     }
 
     /* ===== SUCCESS LOGIN ===== */
-
     const previousLogins = await LoginLog.find({
       userId: user._id,
       status: "success"
@@ -179,14 +179,12 @@ router.post("/login", async (req, res) => {
     let newIP = false;
     let lateNight = false;
 
-    // New IP detection
     if (!knownIPs.includes(cleanIP) && previousLogins.length > 0) {
       riskScore += 30;
       isAnomaly = true;
       newIP = true;
     }
 
-    // Time-based anomaly
     const hour = new Date().getHours();
     if (hour < 6) {
       riskScore += 20;
@@ -194,7 +192,6 @@ router.post("/login", async (req, res) => {
       lateNight = true;
     }
 
-    // Failed attempts tracking (last 10 mins)
     const failedAttempts = await LoginLog.countDocuments({
       ipAddress: cleanIP,
       status: "failed",
@@ -224,6 +221,7 @@ router.post("/login", async (req, res) => {
       riskScore,
       mlScore: 0.2,
       isAnomaly,
+      isSimulated: false, // ✅ FIX
       threatExplanation: explanation
     });
 
@@ -249,78 +247,6 @@ router.post("/login", async (req, res) => {
   }
 });
 
-/* ================= REGISTER ================= */
-router.post("/register", async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
-
-    const existingUser = await User.findOne({
-      email: email.toLowerCase()
-    });
-
-    if (existingUser) {
-      return res.status(400).json({
-        message: "Email already exists"
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    await User.create({
-      name,
-      email: email.toLowerCase(),
-      password: hashedPassword,
-      role: "user"
-    });
-
-    res.status(201).json({
-      message: "Registered successfully"
-    });
-
-  } catch (error) {
-    console.error("REGISTER ERROR:", error);
-    res.status(500).json({
-      message: "Server error"
-    });
-  }
-});
-
-/* ================= GET LOGS ================= */
-router.get("/logs", async (req, res) => {
-  const logs = await LoginLog.find().sort({ createdAt: -1 });
-  res.json(logs);
-});
-
-/* ================= GET USERS ================= */
-router.get("/users", async (req, res) => {
-  try {
-    const users = await User.find().select("-password");
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ message: "Error fetching users" });
-  }
-});
-
-/* ================= DASHBOARD STATS ================= */
-router.get("/stats", async (req, res) => {
-  try {
-    const totalUsers = await User.countDocuments();
-    const totalLogins = await LoginLog.countDocuments();
-    const failedLogins = await LoginLog.countDocuments({ status: "failed" });
-    const anomalies = await LoginLog.countDocuments({ isAnomaly: true });
-
-    res.json({
-      totalUsers,
-      totalLogins,
-      failedLogins,
-      anomalies
-    });
-
-  } catch (err) {
-    res.status(500).json({ message: "Error fetching stats" });
-  }
-});
-
 /* ================= 🚨 ATTACK SIMULATION ================= */
 router.post("/simulate-attack", async (req, res) => {
   try {
@@ -329,12 +255,11 @@ router.post("/simulate-attack", async (req, res) => {
     let fakeLogs = [];
 
     if (type === "brute_force") {
-      // Many attempts from few IPs
       for (let i = 0; i < 20; i++) {
         fakeLogs.push({
           email: "admin@gmail.com",
           role: "attacker",
-          ipAddress: `192.168.1.${i % 3}`, // few IPs repeating
+          ipAddress: `192.168.1.${i % 3}`,
           country: "Unknown",
           device: "Bot",
           browser: "Script",
@@ -343,6 +268,7 @@ router.post("/simulate-attack", async (req, res) => {
           riskScore: 80,
           mlScore: 0.9,
           isAnomaly: true,
+          isSimulated: true, // ✅ FIX
           threatExplanation: generateThreatExplanation(
             { riskScore: 80, mlScore: 0.9 },
             { failedAttempts: 10, newIP: true }
@@ -352,12 +278,11 @@ router.post("/simulate-attack", async (req, res) => {
     }
 
     if (type === "credential_stuffing") {
-      // Many IPs attacking same users
       for (let i = 0; i < 30; i++) {
         fakeLogs.push({
           email: `user${i % 5}@gmail.com`,
           role: "attacker",
-          ipAddress: `10.0.0.${i}`, // many IPs
+          ipAddress: `10.0.0.${i}`,
           country: "Multiple",
           device: "Bot",
           browser: "Script",
@@ -366,6 +291,7 @@ router.post("/simulate-attack", async (req, res) => {
           riskScore: 85,
           mlScore: 0.95,
           isAnomaly: true,
+          isSimulated: true, // ✅ FIX
           threatExplanation: generateThreatExplanation(
             { riskScore: 85, mlScore: 0.95 },
             { failedAttempts: 8, newIP: true }
@@ -375,7 +301,6 @@ router.post("/simulate-attack", async (req, res) => {
     }
 
     if (type === "normal_traffic") {
-      // Safe logs
       for (let i = 0; i < 10; i++) {
         fakeLogs.push({
           email: `user${i}@gmail.com`,
@@ -389,6 +314,7 @@ router.post("/simulate-attack", async (req, res) => {
           riskScore: 10,
           mlScore: 0.1,
           isAnomaly: false,
+          isSimulated: true, // ✅ FIX
           threatExplanation: generateThreatExplanation(
             { riskScore: 10, mlScore: 0.1 },
             {}
@@ -399,7 +325,6 @@ router.post("/simulate-attack", async (req, res) => {
 
     const insertedLogs = await LoginLog.insertMany(fakeLogs);
 
-    // 🔥 real-time update
     const io = req.app.get("io");
     io.emit("attackDetected", insertedLogs);
 

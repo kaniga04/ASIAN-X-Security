@@ -13,7 +13,7 @@ const LoginLogSchema = new mongoose.Schema({
   ipAddress: String,
   country: String,
 
-  // ✅ ADD THESE NEW FIELDS
+  // ✅ DEVICE INFO
   device: {
     type: String,
     default: "Unknown"
@@ -41,10 +41,19 @@ const LoginLogSchema = new mongoose.Schema({
     default: false
   },
 
+  // ✅ MITRE (optional - keep if using)
   mitreTactic: String,
   mitreTechnique: String,
   mitreTechniqueId: String,
-  anomalyReason: String
+  anomalyReason: String,
+
+  // 🔥 NEW: THREAT EXPLANATION FEATURE
+  threatExplanation: {
+    title: String,
+    riskLevel: String,
+    reasons: [String],
+    recommendations: [String]
+  }
 
 }, { timestamps: true });
 

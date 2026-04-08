@@ -15,7 +15,7 @@ const getClientIP = (req) => {
   const forwarded = req.headers["x-forwarded-for"];
 
   if (forwarded) {
-    return forwarded.split(",")[0].trim(); // ✅ first IP only
+    return forwarded.split(",")[0].trim();
   }
 
   return (
@@ -28,7 +28,7 @@ const getClientIP = (req) => {
 
 /* ================= GET DEVICE INFO ================= */
 const getDeviceInfo = (req) => {
-  const ua = req.headers["user-agent"];
+  const ua = req.headers["user-agent"] || "";
   const parser = new UAParser(ua);
 
   const device = parser.getDevice();
@@ -53,6 +53,48 @@ const getDeviceInfo = (req) => {
   };
 };
 
+/* ================= THREAT EXPLANATION ================= */
+const generateThreatExplanation = (log, context = {}) => {
+  let reasons = [];
+  let recommendations = [];
+
+  if (context.newIP) {
+    reasons.push("Login from a new or unknown IP address");
+    recommendations.push("Verify user identity");
+  }
+
+  if (context.lateNight) {
+    reasons.push("Login attempt during unusual hours");
+    recommendations.push("Check user activity pattern");
+  }
+
+  if (context.failedAttempts > 3) {
+    reasons.push("Multiple failed login attempts detected");
+    recommendations.push("Temporarily block IP address");
+  }
+
+  if (log.mlScore >= 0.7) {
+    reasons.push("High anomaly score detected");
+    recommendations.push("Enable 2FA");
+  }
+
+  if (reasons.length === 0) {
+    reasons.push("Normal login behavior");
+    recommendations.push("No action needed");
+  }
+
+  let riskLevel = "LOW";
+  if (log.riskScore >= 70) riskLevel = "HIGH";
+  else if (log.riskScore >= 40) riskLevel = "MEDIUM";
+
+  return {
+    title: "Threat Analysis Report",
+    riskLevel,
+    reasons,
+    recommendations
+  };
+};
+
 /* ================= LOGIN ================= */
 router.post("/login", async (req, res) => {
   try {
@@ -62,30 +104,32 @@ router.post("/login", async (req, res) => {
       email: email.toLowerCase()
     });
 
-    const ipAddress = getClientIP(req);
-    const cleanIP = ipAddress.split(",")[0].trim();
+    const cleanIP = getClientIP(req);
 
     const geo = geoip.lookup(cleanIP);
     const country = geo ? geo.country : "Unknown";
 
     const deviceInfo = getDeviceInfo(req);
-
     const io = req.app.get("io");
 
     /* ===== USER NOT FOUND ===== */
     if (!user) {
+      const explanation = generateThreatExplanation(
+        { riskScore: 60, mlScore: 0.6 },
+        { newIP: true, failedAttempts: 5 }
+      );
+
       const log = await LoginLog.create({
         email,
         role: "guest",
         ipAddress: cleanIP,
         country,
-        device: deviceInfo.device,
-        browser: deviceInfo.browser,
-        os: deviceInfo.os,
+        ...deviceInfo,
         status: "failed",
         riskScore: 60,
         mlScore: 0.6,
-        isAnomaly: true
+        isAnomaly: true,
+        threatExplanation: explanation
       });
 
       io.emit("attackDetected", log);
@@ -97,19 +141,23 @@ router.post("/login", async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
+      const explanation = generateThreatExplanation(
+        { riskScore: 60, mlScore: 0.6 },
+        { failedAttempts: 5 }
+      );
+
       const log = await LoginLog.create({
         userId: user._id,
         email: user.email,
         role: user.role,
         ipAddress: cleanIP,
         country,
-        device: deviceInfo.device,
-        browser: deviceInfo.browser,
-        os: deviceInfo.os,
+        ...deviceInfo,
         status: "failed",
         riskScore: 60,
         mlScore: 0.6,
-        isAnomaly: true
+        isAnomaly: true,
+        threatExplanation: explanation
       });
 
       io.emit("attackDetected", log);
@@ -118,22 +166,52 @@ router.post("/login", async (req, res) => {
     }
 
     /* ===== SUCCESS LOGIN ===== */
+
     const previousLogins = await LoginLog.find({
       userId: user._id,
       status: "success"
     });
 
-    const knownIPs = previousLogins.map(log =>
-      log.ipAddress.split(",")[0].trim()
-    );
+    const knownIPs = previousLogins.map(log => log.ipAddress);
 
     let riskScore = 10;
     let isAnomaly = false;
+    let newIP = false;
+    let lateNight = false;
 
+    // New IP detection
     if (!knownIPs.includes(cleanIP) && previousLogins.length > 0) {
       riskScore += 30;
       isAnomaly = true;
+      newIP = true;
     }
+
+    // Time-based anomaly
+    const hour = new Date().getHours();
+    if (hour < 6) {
+      riskScore += 20;
+      isAnomaly = true;
+      lateNight = true;
+    }
+
+    // Failed attempts tracking (last 10 mins)
+    const failedAttempts = await LoginLog.countDocuments({
+      ipAddress: cleanIP,
+      status: "failed",
+      createdAt: {
+        $gte: new Date(Date.now() - 10 * 60 * 1000)
+      }
+    });
+
+    if (failedAttempts > 3) {
+      riskScore += 20;
+      isAnomaly = true;
+    }
+
+    const explanation = generateThreatExplanation(
+      { riskScore, mlScore: 0.2 },
+      { newIP, lateNight, failedAttempts }
+    );
 
     await LoginLog.create({
       userId: user._id,
@@ -141,13 +219,12 @@ router.post("/login", async (req, res) => {
       role: user.role,
       ipAddress: cleanIP,
       country,
-      device: deviceInfo.device,
-      browser: deviceInfo.browser,
-      os: deviceInfo.os,
+      ...deviceInfo,
       status: "success",
       riskScore,
       mlScore: 0.2,
-      isAnomaly
+      isAnomaly,
+      threatExplanation: explanation
     });
 
     const token = jwt.sign(
@@ -167,7 +244,7 @@ router.post("/login", async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("LOGIN ERROR:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -201,7 +278,7 @@ router.post("/register", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("REGISTER ERROR:", error); // 🔥 debug
+    console.error("REGISTER ERROR:", error);
     res.status(500).json({
       message: "Server error"
     });
@@ -217,7 +294,7 @@ router.get("/logs", async (req, res) => {
 /* ================= GET USERS ================= */
 router.get("/users", async (req, res) => {
   try {
-    const users = await User.find().select("-password"); // ✅ secure
+    const users = await User.find().select("-password");
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: "Error fetching users" });

@@ -321,4 +321,98 @@ router.get("/stats", async (req, res) => {
   }
 });
 
+/* ================= 🚨 ATTACK SIMULATION ================= */
+router.post("/simulate-attack", async (req, res) => {
+  try {
+    const { type } = req.body;
+
+    let fakeLogs = [];
+
+    if (type === "brute_force") {
+      // Many attempts from few IPs
+      for (let i = 0; i < 20; i++) {
+        fakeLogs.push({
+          email: "admin@gmail.com",
+          role: "attacker",
+          ipAddress: `192.168.1.${i % 3}`, // few IPs repeating
+          country: "Unknown",
+          device: "Bot",
+          browser: "Script",
+          os: "Unknown",
+          status: "failed",
+          riskScore: 80,
+          mlScore: 0.9,
+          isAnomaly: true,
+          threatExplanation: generateThreatExplanation(
+            { riskScore: 80, mlScore: 0.9 },
+            { failedAttempts: 10, newIP: true }
+          )
+        });
+      }
+    }
+
+    if (type === "credential_stuffing") {
+      // Many IPs attacking same users
+      for (let i = 0; i < 30; i++) {
+        fakeLogs.push({
+          email: `user${i % 5}@gmail.com`,
+          role: "attacker",
+          ipAddress: `10.0.0.${i}`, // many IPs
+          country: "Multiple",
+          device: "Bot",
+          browser: "Script",
+          os: "Unknown",
+          status: "failed",
+          riskScore: 85,
+          mlScore: 0.95,
+          isAnomaly: true,
+          threatExplanation: generateThreatExplanation(
+            { riskScore: 85, mlScore: 0.95 },
+            { failedAttempts: 8, newIP: true }
+          )
+        });
+      }
+    }
+
+    if (type === "normal_traffic") {
+      // Safe logs
+      for (let i = 0; i < 10; i++) {
+        fakeLogs.push({
+          email: `user${i}@gmail.com`,
+          role: "user",
+          ipAddress: `223.178.83.${i}`,
+          country: "IN",
+          device: "Desktop",
+          browser: "Chrome",
+          os: "Windows",
+          status: "success",
+          riskScore: 10,
+          mlScore: 0.1,
+          isAnomaly: false,
+          threatExplanation: generateThreatExplanation(
+            { riskScore: 10, mlScore: 0.1 },
+            {}
+          )
+        });
+      }
+    }
+
+    const insertedLogs = await LoginLog.insertMany(fakeLogs);
+
+    // 🔥 real-time update
+    const io = req.app.get("io");
+    io.emit("attackDetected", insertedLogs);
+
+    res.json({
+      message: "Attack simulated successfully",
+      type,
+      count: insertedLogs.length
+    });
+
+  } catch (error) {
+    console.error("SIMULATION ERROR:", error);
+    res.status(500).json({ message: "Simulation failed" });
+  }
+});
+
 module.exports = router;

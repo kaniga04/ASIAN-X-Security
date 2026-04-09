@@ -9,7 +9,6 @@ import {
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
 
-// REGISTER CHART ELEMENTS
 ChartJS.register(
   BarElement,
   CategoryScale,
@@ -18,29 +17,38 @@ ChartJS.register(
   Legend
 );
 
-function RiskChart({ logs }) {
+function RiskChart({ logs = [] }) {
 
-  const lowRisk = logs.filter(log => log.riskScore < 30).length;
-  const mediumRisk = logs.filter(
-    log => log.riskScore >= 30 && log.riskScore < 70
+  // ✅ Safe fallback
+  const safeLogs = logs || [];
+
+  const lowRisk = safeLogs.filter(l => l.riskScore < 30).length;
+  const mediumRisk = safeLogs.filter(
+    l => l.riskScore >= 30 && l.riskScore < 70
   ).length;
-  const highRisk = logs.filter(log => log.riskScore >= 70).length;
+  const highRisk = safeLogs.filter(l => l.riskScore >= 70).length;
 
   const data = {
-    labels: ["Low Risk", "Medium Risk", "High Risk"],
+    labels: ["Low", "Medium", "High"],
     datasets: [
       {
-        label: "Risk Analysis",
+        label: "Risk Level",
         data: [lowRisk, mediumRisk, highRisk],
 
         backgroundColor: [
-          "#22c55e",   // green
-          "#f59e0b",   // orange
-          "#ef4444"    // red
+          "rgba(34,197,94,0.8)",   // green
+          "rgba(245,158,11,0.8)",  // orange
+          "rgba(239,68,68,0.8)"    // red
         ],
 
-        borderRadius: 12,
-        barThickness: 50
+        borderRadius: 10,
+        hoverBackgroundColor: [
+          "#16a34a",
+          "#d97706",
+          "#dc2626"
+        ],
+
+        barThickness: 45
       }
     ]
   };
@@ -55,24 +63,23 @@ function RiskChart({ logs }) {
       },
 
       tooltip: {
-        backgroundColor: "#1f2937",
-        titleColor: "#ffffff",
-        bodyColor: "#ffffff",
-        padding: 12,
-        cornerRadius: 8
+        backgroundColor: "#111827",
+        titleColor: "#fff",
+        bodyColor: "#fff",
+        padding: 10,
+        cornerRadius: 6,
+        displayColors: false
       }
     },
 
     scales: {
       x: {
-        grid: {
-          display: false
-        },
+        grid: { display: false },
         ticks: {
           color: "#374151",
           font: {
-            size: 12,
-            weight: "500"
+            size: 13,
+            weight: "600"
           }
         }
       },
@@ -83,27 +90,57 @@ function RiskChart({ logs }) {
           color: "#e5e7eb"
         },
         ticks: {
-          color: "#6b7280"
+          color: "#6b7280",
+          stepSize: 1
         }
       }
     }
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-6 h-full">
+    <div className="bg-white rounded-2xl shadow-md p-6 transition hover:shadow-lg">
 
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-gray-800">
-          Risk Distribution
-        </h3>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-800">
+            Risk Distribution
+          </h3>
+          <p className="text-xs text-gray-500">
+            Login behavior classification
+          </p>
+        </div>
 
-        <span className="text-sm text-gray-500">
-          Login Behavior Analysis
-        </span>
+        <div className="text-xs text-gray-400">
+          Total: {safeLogs.length}
+        </div>
       </div>
 
+      {/* Chart */}
       <div className="h-[260px]">
-        <Bar data={data} options={options} />
+        {safeLogs.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+            No data available
+          </div>
+        ) : (
+          <Bar data={data} options={options} />
+        )}
+      </div>
+
+      {/* Legend */}
+      <div className="flex justify-center gap-6 mt-4 text-xs text-gray-600">
+        <span className="flex items-center gap-2">
+          <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+          Low
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="w-3 h-3 bg-orange-500 rounded-full"></span>
+          Medium
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="w-3 h-3 bg-red-500 rounded-full"></span>
+          High
+        </span>
       </div>
 
     </div>

@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
 
 const ProtectedRoute = ({ children, role }) => {
+
   const token =
     localStorage.getItem("token") ||
     sessionStorage.getItem("token");
@@ -13,10 +14,17 @@ const ProtectedRoute = ({ children, role }) => {
     return <Navigate to="/" replace />;
   }
 
-  const user = JSON.parse(storedUser);
+  let user = null;
 
-  // If role is required and doesn't match
-  if (role && user.role !== role) {
+  try {
+    user = JSON.parse(storedUser);
+  } catch (err) {
+    console.error("Invalid user data");
+    return <Navigate to="/" replace />;
+  }
+
+  // Role check
+  if (role && (!user?.role || user.role !== role)) {
     return <Navigate to="/" replace />;
   }
 

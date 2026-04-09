@@ -9,11 +9,13 @@ function AdminChatbot() {
   const [input, setInput] = useState("");
   const [logs, setLogs] = useState([]);
 
-  // Fetch logs
+  // ✅ Fetch logs (FIXED API + ENV SUPPORT)
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const res = await axios.get("https://asian-x-security.onrender.com/api/auth/login");
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_URL}/api/auth/logs`
+        );
         setLogs(res.data);
       } catch (err) {
         console.error("Error fetching logs:", err);
@@ -23,17 +25,15 @@ function AdminChatbot() {
     fetchLogs();
   }, []);
 
-  // 🧠 Risk Scoring Engine
+  // 🧠 Risk Scoring
   const calculateRiskScore = () => {
     if (!logs.length) return 0;
 
     const failed = logs.filter(l => l.status === "failed").length;
-    const highRisk = logs.filter(l => l.risk === "High").length;
+    const highRisk = logs.filter(l => l.riskScore >= 70).length;
     const anomalies = logs.filter(l => l.isAnomaly === true).length;
 
-    let score = (failed * 2) + (highRisk * 5) + (anomalies * 4);
-
-    return score;
+    return (failed * 2) + (highRisk * 5) + (anomalies * 4);
   };
 
   const getRiskLevel = (score) => {
@@ -42,7 +42,7 @@ function AdminChatbot() {
     return "🟢 LOW RISK";
   };
 
-  // 🧠 Smart Intent Detection
+  // 🧠 Intent Detection
   const detectIntent = (question) => {
     const q = question.toLowerCase();
 
@@ -64,7 +64,7 @@ function AdminChatbot() {
     return "UNKNOWN";
   };
 
-  // 🔥 Intelligent Response Generator
+  // 🤖 Response Generator
   const generateResponse = (intent) => {
     if (!logs.length)
       return "Fraud data is currently unavailable.";
@@ -77,7 +77,8 @@ function AdminChatbot() {
       case "TOP_IP":
         const ipCount = {};
         logs.forEach(log => {
-          ipCount[log.ip] = (ipCount[log.ip] || 0) + 1;
+          const ip = log.ipAddress?.split(",")[0].trim();
+          ipCount[ip] = (ipCount[ip] || 0) + 1;
         });
 
         const sortedIPs = Object.entries(ipCount)
@@ -115,7 +116,7 @@ ${riskScore > 50
 
       case "SUMMARY":
         const failedCount = logs.filter(l => l.status === "failed").length;
-        const highRiskCount = logs.filter(l => l.risk === "High").length;
+        const highRiskCount = logs.filter(l => l.riskScore >= 70).length;
 
         return `📈 Fraud Intelligence Summary:
 

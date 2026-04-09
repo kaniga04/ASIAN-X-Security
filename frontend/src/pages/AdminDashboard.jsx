@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
@@ -9,59 +9,57 @@ import RiskChart from "../components/RiskChart";
 import LoginTable from "../components/LoginTable";
 import AdminChatbot from "../components/AdminChatbot";
 
-const API_BASE = "https://asian-x-security.onrender.com/api";
+// ✅ USE ENV VARIABLE
+const API_BASE = process.env.REACT_APP_API_URL + "/api";
 
 function AdminDashboard() {
   const [logs, setLogs] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // ✅ simulation mode
   const [isSimulated, setIsSimulated] = useState(false);
 
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line
-  }, [isSimulated]); // ✅ trigger on mode change
+ const fetchData = useCallback(async () => {
+  try {
+    setLoading(true);
 
-  /* ================= FETCH DATA ================= */
-  const fetchData = async () => {
+    const logsRes = await axios.get(`${API_BASE}/auth/logs`);
+
+    let usersData = [];
     try {
-      setLoading(true);
-
-      const logsRes = await axios.get(`${API_BASE}/auth/logs`);
-
-      let usersData = [];
-      try {
-        const usersRes = await axios.get(`${API_BASE}/auth/users`);
-        usersData = usersRes.data;
-      } catch (err) {
-        console.warn("Users API error");
-      }
-
-      const allLogs = logsRes.data || [];
-
-      // ✅ FIXED FILTER
-      const filteredLogs = isSimulated
-        ? allLogs.filter((log) => log.isSimulated === true)
-        : allLogs.filter((log) => log.isSimulated !== true);
-
-      setLogs(filteredLogs);
-      setUsers(usersData || []);
-    } catch (error) {
-      console.error("Dashboard fetch error:", error);
-    } finally {
-      setLoading(false);
+      const usersRes = await axios.get(`${API_BASE}/auth/users`);
+      usersData = usersRes.data;
+    } catch {
+      console.warn("Users API error");
     }
-  };
 
+    const allLogs = Array.isArray(logsRes.data) ? logsRes.data : [];
+
+    const filteredLogs = isSimulated
+      ? allLogs.filter((log) => log.isSimulated === true)
+      : allLogs.filter((log) => log.isSimulated !== true);
+
+    setLogs(filteredLogs);
+    setUsers(usersData || []);
+  } catch (error) {
+    console.error(
+      "Dashboard fetch error:",
+      error?.response?.data || error.message
+    );
+  } finally {
+    setLoading(false);
+  }
+}, [isSimulated]);
+  /* ================= USE EFFECT ================= */
+  useEffect(() => {
+  fetchData();
+}, [fetchData]);
   /* ================= SIMULATE ================= */
   const simulateAttack = async (type) => {
     try {
       await axios.post(`${API_BASE}/auth/simulate-attack`, { type });
-      setIsSimulated(true); // switch mode
+      setIsSimulated(true);
     } catch (err) {
       console.error("Simulation error:", err);
     }
@@ -69,7 +67,7 @@ function AdminDashboard() {
 
   /* ================= REFRESH ================= */
   const handleRefresh = () => {
-    setIsSimulated(false); // back to real logs
+    setIsSimulated(false);
   };
 
   const handleLogout = () => {
@@ -78,7 +76,9 @@ function AdminDashboard() {
   };
 
   /* ================= HIGH RISK ================= */
-  const highRiskLogs = logs.filter((log) => log.riskScore >= 70);
+  const highRiskLogs = logs.filter(
+    (log) => (log.riskScore || 0) >= 70
+  );
 
   const getAnalysis = (log) => {
     const hour = new Date(log.createdAt).getHours();
@@ -87,7 +87,7 @@ function AdminDashboard() {
       location: log.country === "IN" ? "normal" : "abnormal",
       time: hour >= 6 && hour <= 22 ? "normal" : "abnormal",
       device: log.device === "Desktop" ? "normal" : "unknown",
-      behavior: log.riskScore >= 80 ? "warning" : "normal"
+      behavior: log.riskScore >= 80 ? "warning" : "normal",
     };
   };
 
@@ -97,6 +97,7 @@ function AdminDashboard() {
     return "⚠️";
   };
 
+  /* ================= LOADING ================= */
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -142,7 +143,7 @@ function AdminDashboard() {
             </div>
           </div>
 
-          {/* MODE INDICATOR */}
+          {/* MODE */}
           {isSimulated && (
             <div className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-sm">
               ⚠️ Simulation Mode Active — Showing attack data
@@ -213,7 +214,6 @@ function AdminDashboard() {
                       key={log._id}
                       className="rounded-xl border bg-red-50 p-5 shadow-sm"
                     >
-
                       <div className="flex justify-between mb-4">
                         <div>
                           <p className="font-bold text-gray-800">
@@ -243,7 +243,6 @@ function AdminDashboard() {
                       <div className="mt-3 text-xs text-gray-600">
                         IP: {log.ipAddress} | {log.country} | {log.browser} | {log.os}
                       </div>
-
                     </div>
                   );
                 })}

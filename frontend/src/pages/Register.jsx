@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 
 function Register() {
-  const [name, setName] = useState("");   // ✅ used now
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -11,6 +11,11 @@ function Register() {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
+
+  // API URL (Production + Local Support)
+  const API_URL =
+    process.env.REACT_APP_API_URL ||
+    "https://asian-x-security.onrender.com";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,18 +25,25 @@ function Register() {
 
     try {
       const res = await axios.post(
-        "https://asian-x-security.onrender.com/api/auth/register",
-        { name, email, password }  // ✅ send name
+        `${API_URL}/api/auth/register`,
+        {
+          name,
+          email,
+          password
+        }
       );
 
       if (res.status === 201) {
         setSuccess("Account created successfully!");
+
         setTimeout(() => {
           navigate("/");
         }, 1500);
       }
 
     } catch (err) {
+      console.error("Register Error:", err);
+
       setError(
         err.response?.data?.message ||
         "Registration failed. Please try again."
@@ -42,15 +54,25 @@ function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+
       <div className="w-full max-w-md bg-white p-8 shadow-xl rounded-xl">
 
         <h2 className="text-2xl font-bold mb-6 text-center">
           Create Account
         </h2>
 
-        {error && <p className="text-red-500 mb-4">{error}</p>}
-        {success && <p className="text-green-500 mb-4">{success}</p>}
+        {error && (
+          <p className="text-red-500 mb-4 text-center">
+            {error}
+          </p>
+        )}
+
+        {success && (
+          <p className="text-green-500 mb-4 text-center">
+            {success}
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -87,19 +109,25 @@ function Register() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white p-3 rounded"
+            className="w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700 transition"
           >
             {loading ? "Creating..." : "Create Account"}
           </button>
+
         </form>
 
-        <p className="mt-4 text-center">
+        <p className="mt-4 text-center text-sm">
           Already have an account?{" "}
-          <Link to="/" className="text-blue-600">
+          <Link
+            to="/"
+            className="text-blue-600 font-medium"
+          >
             Login
           </Link>
         </p>
+
       </div>
+
     </div>
   );
 }

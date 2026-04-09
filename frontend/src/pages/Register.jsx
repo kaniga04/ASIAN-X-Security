@@ -20,7 +20,7 @@ function Register() {
 
     try {
       const res = await axios.post(
-        "http://asian-x-security.onrender.com/api/auth/register",
+        "https://asian-x-security.onrender.com/api/auth/register",
         { name, email, password }  // ✅ send name
       );
 

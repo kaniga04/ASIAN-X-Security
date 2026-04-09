@@ -356,4 +356,18 @@ router.get("/logs", async (req, res) => {
   }
 });
 
+/* ================= 👤 GET ALL USERS ================= */
+router.get("/users", async (req, res) => {
+  try {
+    const users = await User.find().select("-password");
+
+    console.log("👤 USERS:", users.length);
+
+    res.json(users);
+  } catch (error) {
+    console.error("FETCH USERS ERROR:", error);
+    res.status(500).json({ message: "Error fetching users" });
+  }
+});
+
 module.exports = router;

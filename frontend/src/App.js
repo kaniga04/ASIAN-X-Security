@@ -17,6 +17,12 @@ import FraudDashboard from "./pages/FraudDashboard";
 // NEW FRAUD ANALYTICS PAGE
 import FraudDetection from "./pages/FraudDetection";
 
+// CSV ANALYZER
+import CSVAnalyzer from "./pages/CSVAnalyzer";
+
+// USER INVESTIGATION
+import UserInvestigation from "./pages/UserInvestigation";
+
 // ACCOUNT PAGES
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
@@ -88,6 +94,26 @@ function App() {
           element={
             <ProtectedRoute role="admin">
               <FraudDetection />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* CSV ANALYZER */}
+        <Route
+          path="/admin/csv-analyzer"
+          element={
+            <ProtectedRoute role="admin">
+              <CSVAnalyzer />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* USER INVESTIGATION */}
+        <Route
+          path="/admin/investigation"
+          element={
+            <ProtectedRoute role="admin">
+              <UserInvestigation />
             </ProtectedRoute>
           }
         />

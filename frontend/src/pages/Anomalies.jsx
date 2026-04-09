@@ -59,33 +59,44 @@ function Anomalies() {
   // ===== Export CSV =====
   const exportCSV = () => {
 
+    if (logs.length === 0) {
+      alert("No data to export");
+      return;
+    }
+
     const rows = logs.map(log => ({
       Email: log.email,
-      IP: log.ipAddress?.split(",")[0].trim(), // ✅ FIXED HERE
-      Risk: log.riskScore,
+      IP: log.ipAddress?.split(",")[0].trim(),
+      Country: log.country || "Unknown",
+      RiskScore: log.riskScore,
+      MLScore: log.mlScore || 0,
       Status: log.status,
-      Time: new Date(log.loginTime).toLocaleString()
+      Time: new Date(log.createdAt).toLocaleString()
     }));
 
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      ["Email,IP,Risk,Status,Time"]
-        .concat(
-          rows.map(r =>
-            `${r.Email},${r.IP},${r.Risk},${r.Status},${r.Time}`
-          )
-        )
-        .join("\n");
+    const headers = Object.keys(rows[0]).join(",");
 
-    const encodedUri = encodeURI(csvContent);
+    const csv = [
+      headers,
+      ...rows.map(row => Object.values(row).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csv], {
+      type: "text/csv;charset=utf-8;"
+    });
+
+    const url = window.URL.createObjectURL(blob);
 
     const link = document.createElement("a");
 
-    link.setAttribute("href", encodedUri);
+    link.href = url;
     link.setAttribute("download", "anomalies.csv");
 
     document.body.appendChild(link);
+
     link.click();
+
+    document.body.removeChild(link);
   };
 
   const filteredLogs = logs
@@ -181,8 +192,6 @@ function Anomalies() {
                 {filteredLogs.map((log) => {
 
                   const severity = getSeverity(log.riskScore);
-
-                  // ✅ EXTRACT ONLY REAL IP
                   const realIP = log.ipAddress?.split(",")[0].trim();
 
                   return (
@@ -229,7 +238,7 @@ function Anomalies() {
                       </td>
 
                       <td className="px-6 py-4">
-                        {new Date(log.loginTime).toLocaleString()}
+                        {new Date(log.createdAt).toLocaleString()}
                       </td>
 
                       <td className="px-6 py-4">

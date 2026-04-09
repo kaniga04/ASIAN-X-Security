@@ -8,7 +8,8 @@ import {
   User,
   Settings,
   HelpCircle,
-  ShieldCheck
+  ShieldCheck,
+  FileSpreadsheet
 } from "lucide-react";
 
 import logo from "../assets/logo.png";
@@ -92,7 +93,7 @@ function Sidebar({ onLogout }) {
             Anomalies
           </NavLink>
 
-          {/* NEW FRAUD ANALYTICS */}
+          {/* Fraud Analytics */}
           <NavLink
             to="/admin/fraud-analytics"
             className={({ isActive }) =>
@@ -106,6 +107,35 @@ function Sidebar({ onLogout }) {
             <ShieldCheck size={18} />
             Fraud Analytics
           </NavLink>
+
+          {/* CSV Analyzer (NEW) */}
+          <NavLink
+            to="/admin/csv-analyzer"
+            className={({ isActive }) =>
+              `flex items-center gap-3 p-3 rounded-lg transition ${
+                isActive
+                  ? "bg-green-600 text-white"
+                  : "hover:bg-slate-800"
+              }`
+            }
+          >
+            <FileSpreadsheet size={18} />
+            CSV Analyzer
+          </NavLink>
+
+          <NavLink
+  to="/admin/investigation"
+  className={({ isActive }) =>
+    `flex items-center gap-3 p-3 rounded-lg transition ${
+      isActive
+        ? "bg-indigo-600 text-white"
+        : "hover:bg-slate-800"
+    }`
+  }
+>
+  <ShieldCheck size={18} />
+  User Investigation
+</NavLink>
 
         </div>
 

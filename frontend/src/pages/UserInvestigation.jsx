@@ -6,7 +6,7 @@ import Topbar from "../components/Topbar";
 function UserInvestigation() {
 
   const [email, setEmail] = useState("");
-  const [_logs, setLogs] = useState([]);
+  
   const [report, setReport] = useState(null);
 
   const fetchUserData = async () => {

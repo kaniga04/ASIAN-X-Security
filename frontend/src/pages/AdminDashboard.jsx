@@ -9,8 +9,8 @@ import RiskChart from "../components/RiskChart";
 import LoginTable from "../components/LoginTable";
 import AdminChatbot from "../components/AdminChatbot";
 
-// ✅ USE ENV VARIABLE
-const API_BASE = process.env.REACT_APP_API_URL + "/api";
+// ✅ Safe ENV handling
+const API_BASE = `${process.env.REACT_APP_API_URL || ""}/api`;
 
 function AdminDashboard() {
   const [logs, setLogs] = useState([]);
@@ -20,65 +20,65 @@ function AdminDashboard() {
 
   const navigate = useNavigate();
 
- const fetchData = useCallback(async () => {
-  try {
-    setLoading(true);
-
-    const logsRes = await axios.get(`${API_BASE}/auth/logs`);
-
-    let usersData = [];
+  /* ================= FETCH DATA ================= */
+  const fetchData = useCallback(async () => {
     try {
-      const usersRes = await axios.get(`${API_BASE}/auth/users`);
-      usersData = usersRes.data;
-    } catch {
-      console.warn("Users API error");
+      setLoading(true);
+
+      const logsRes = await axios.get(`${API_BASE}/auth/logs`);
+
+      let usersData = [];
+      try {
+        const usersRes = await axios.get(`${API_BASE}/auth/users`);
+        usersData = usersRes.data;
+      } catch {
+        console.warn("Users API not available");
+      }
+
+      const allLogs = Array.isArray(logsRes.data) ? logsRes.data : [];
+
+      const filteredLogs = isSimulated
+        ? allLogs.filter((log) => log.isSimulated === true)
+        : allLogs.filter((log) => log.isSimulated !== true);
+
+      setLogs(filteredLogs);
+      setUsers(usersData);
+    } catch (error) {
+      console.error(
+        "Dashboard fetch error:",
+        error?.response?.data || error.message
+      );
+    } finally {
+      setLoading(false);
     }
+  }, [isSimulated]);
 
-    const allLogs = Array.isArray(logsRes.data) ? logsRes.data : [];
-
-    const filteredLogs = isSimulated
-      ? allLogs.filter((log) => log.isSimulated === true)
-      : allLogs.filter((log) => log.isSimulated !== true);
-
-    setLogs(filteredLogs);
-    setUsers(usersData || []);
-  } catch (error) {
-    console.error(
-      "Dashboard fetch error:",
-      error?.response?.data || error.message
-    );
-  } finally {
-    setLoading(false);
-  }
-}, [isSimulated]);
   /* ================= USE EFFECT ================= */
   useEffect(() => {
-  fetchData();
-}, [fetchData]);
+    fetchData();
+  }, [fetchData]);
+
   /* ================= SIMULATE ================= */
   const simulateAttack = async (type) => {
     try {
       await axios.post(`${API_BASE}/auth/simulate-attack`, { type });
       setIsSimulated(true);
     } catch (err) {
-      console.error("Simulation error:", err);
+      console.error("Simulation error:", err.message);
     }
   };
 
   /* ================= REFRESH ================= */
-  const handleRefresh = () => {
-    setIsSimulated(false);
-  };
+  const handleRefresh = () => setIsSimulated(false);
 
   const handleLogout = () => {
     localStorage.clear();
+    sessionStorage.clear();
     navigate("/");
   };
 
   /* ================= HIGH RISK ================= */
-  const highRiskLogs = logs.filter(
-    (log) => (log.riskScore || 0) >= 70
-  );
+  const highRiskLogs = logs.filter((log) => (log.riskScore || 0) >= 70);
 
   const getAnalysis = (log) => {
     const hour = new Date(log.createdAt).getHours();
@@ -160,7 +160,6 @@ function AdminDashboard() {
               <h2 className="text-lg font-semibold mb-4">
                 Login Activity Timeline
               </h2>
-
               <div className="h-[320px] overflow-auto">
                 <LoginTable logs={logs} />
               </div>
@@ -170,7 +169,6 @@ function AdminDashboard() {
               <h2 className="text-lg font-semibold mb-4">
                 Risk Level Distribution
               </h2>
-
               <div className="h-[320px]">
                 <RiskChart logs={logs} />
               </div>
@@ -189,14 +187,12 @@ function AdminDashboard() {
               </p>
             ) : (
               <div className="space-y-6">
-
                 {highRiskLogs.map((log) => {
                   const analysis = getAnalysis(log);
 
                   const row = (label, value) => (
                     <div className="flex justify-between items-center border-b py-2">
                       <span className="text-gray-600">{label}</span>
-
                       <div className="flex gap-4 items-center">
                         <span className="font-semibold">
                           {renderStatus(value)} User
@@ -246,7 +242,6 @@ function AdminDashboard() {
                     </div>
                   );
                 })}
-
               </div>
             )}
           </div>

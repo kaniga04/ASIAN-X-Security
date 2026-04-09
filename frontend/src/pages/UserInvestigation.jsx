@@ -6,7 +6,6 @@ import Topbar from "../components/Topbar";
 function UserInvestigation() {
 
   const [email, setEmail] = useState("");
-  
   const [report, setReport] = useState(null);
 
   const fetchUserData = async () => {
@@ -19,8 +18,6 @@ function UserInvestigation() {
       const userLogs = res.data.filter(
         log => log.email.toLowerCase() === email.toLowerCase()
       );
-
-      setLogs(userLogs);
 
       generateReport(userLogs);
 

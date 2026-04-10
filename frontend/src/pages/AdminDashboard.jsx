@@ -10,8 +10,7 @@ import LoginTable from "../components/LoginTable";
 import AdminChatbot from "../components/AdminChatbot";
 
 // ✅ Safe ENV handling
-const API_BASE = `${process.env.REACT_APP_API_URL || ""}/api`;
-
+const API_BASE = "https://asian-x-security.onrender.com/api";
 function AdminDashboard() {
   const [logs, setLogs] = useState([]);
   const [users, setUsers] = useState([]);
@@ -154,26 +153,29 @@ function AdminDashboard() {
           <SummaryCards logs={logs} users={users} />
 
           {/* TABLE + CHART */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <h2 className="text-lg font-semibold mb-4">
-                Login Activity Timeline
-              </h2>
-              <div className="h-[320px] overflow-auto">
-                <LoginTable logs={logs} />
-              </div>
-            </div>
+  {/* Login Table */}
+  <div className="bg-white rounded-xl shadow-md p-6">
+    <h2 className="text-lg font-semibold mb-4">
+      Login Activity Timeline
+    </h2>
 
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <h2 className="text-lg font-semibold mb-4">
-                Risk Level Distribution
-              </h2>
-              <div className="h-[320px]">
-                <RiskChart logs={logs} />
-              </div>
-            </div>
-          </div>
+    <div className="h-[320px] overflow-auto">
+      <LoginTable logs={logs} />
+    </div>
+  </div>
+
+  {/* Risk Chart */}
+  <div className="bg-white rounded-xl shadow-md p-6">
+    <h2 className="text-lg font-semibold mb-4">
+      Risk Level Distribution
+    </h2>
+
+    <RiskChart logs={logs} />
+  </div>
+
+</div>
 
           {/* HIGH RISK */}
           <div className="bg-white rounded-xl shadow-md p-6">

@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
+// ✅ FIXED API BASE (fallback added)
+const API_BASE =
+  process.env.REACT_APP_API_URL
+    ? `${process.env.REACT_APP_API_URL}/api`
+    : "https://asian-x-security.onrender.com/api";
+
 function AdminChatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -9,31 +15,32 @@ function AdminChatbot() {
   const [input, setInput] = useState("");
   const [logs, setLogs] = useState([]);
 
-  // ✅ Fetch logs (FIXED API + ENV SUPPORT)
+  /* ================= FETCH LOGS ================= */
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_URL}/api/auth/logs`
-        );
-        setLogs(res.data);
+        const res = await axios.get(`${API_BASE}/auth/logs`);
+        setLogs(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
-        console.error("Error fetching logs:", err);
+        console.error(
+          "Error fetching logs:",
+          err?.response?.data || err.message
+        );
       }
     };
 
     fetchLogs();
   }, []);
 
-  // 🧠 Risk Scoring
+  /* ================= RISK SCORE ================= */
   const calculateRiskScore = () => {
     if (!logs.length) return 0;
 
     const failed = logs.filter(l => l.status === "failed").length;
-    const highRisk = logs.filter(l => l.riskScore >= 70).length;
+    const highRisk = logs.filter(l => (l.riskScore || 0) >= 70).length;
     const anomalies = logs.filter(l => l.isAnomaly === true).length;
 
-    return (failed * 2) + (highRisk * 5) + (anomalies * 4);
+    return failed * 2 + highRisk * 5 + anomalies * 4;
   };
 
   const getRiskLevel = (score) => {
@@ -42,7 +49,7 @@ function AdminChatbot() {
     return "🟢 LOW RISK";
   };
 
-  // 🧠 Intent Detection
+  /* ================= INTENT ================= */
   const detectIntent = (question) => {
     const q = question.toLowerCase();
 
@@ -64,7 +71,7 @@ function AdminChatbot() {
     return "UNKNOWN";
   };
 
-  // 🤖 Response Generator
+  /* ================= RESPONSE ================= */
   const generateResponse = (intent) => {
     if (!logs.length)
       return "Fraud data is currently unavailable.";
@@ -73,11 +80,11 @@ function AdminChatbot() {
     const riskLevel = getRiskLevel(riskScore);
 
     switch (intent) {
-
       case "TOP_IP":
         const ipCount = {};
         logs.forEach(log => {
-          const ip = log.ipAddress?.split(",")[0].trim();
+          const ip = log.ipAddress?.split(",")[0]?.trim();
+          if (!ip) return;
           ipCount[ip] = (ipCount[ip] || 0) + 1;
         });
 
@@ -97,7 +104,7 @@ Current Risk Status: ${riskLevel}`;
 
       case "ANOMALY":
         const anomalies = logs.filter(l => l.isAnomaly === true).length;
-        return `🔎 Detected ${anomalies} anomalies in system logs.
+        return `🔎 Detected ${anomalies} anomalies.
 Security Status: ${riskLevel}`;
 
       case "STATUS":
@@ -116,25 +123,21 @@ ${riskScore > 50
 
       case "SUMMARY":
         const failedCount = logs.filter(l => l.status === "failed").length;
-        const highRiskCount = logs.filter(l => l.riskScore >= 70).length;
+        const highRiskCount = logs.filter(l => (l.riskScore || 0) >= 70).length;
 
-        return `📈 Fraud Intelligence Summary:
+        return `📈 Fraud Summary:
 
 Total Logs: ${logs.length}
 Failed Attempts: ${failedCount}
 High Risk Events: ${highRiskCount}
-Overall Risk Level: ${riskLevel}
-
-AI Insight:
-${highRiskCount > 5
-  ? "Repeated high-risk attempts detected. Possible brute-force pattern."
-  : "No severe threat patterns identified."}`;
+Risk Level: ${riskLevel}`;
 
       default:
-        return "I can assist with system status, fraud summary, top attackers, risk level, and anomaly detection.";
+        return "Ask about risk, anomalies, attackers, or system status.";
     }
   };
 
+  /* ================= SEND ================= */
   const handleSend = () => {
     if (!input.trim()) return;
 
@@ -150,10 +153,10 @@ ${highRiskCount > 5
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Button */}
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 bg-indigo-600 hover:bg-indigo-700 text-white w-16 h-16 flex items-center justify-center rounded-full shadow-lg cursor-pointer text-2xl"
+        className="fixed bottom-6 right-6 bg-indigo-600 text-white w-16 h-16 flex items-center justify-center rounded-full shadow-lg cursor-pointer text-2xl"
       >
         🤖
       </div>
@@ -161,19 +164,19 @@ ${highRiskCount > 5
       {isOpen && (
         <div className="fixed bottom-24 right-6 w-96 bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden">
 
-          <div className="bg-indigo-600 text-white p-3 flex justify-between items-center font-semibold">
-            Enterprise AI Security Assistant
+          <div className="bg-indigo-600 text-white p-3 flex justify-between">
+            AI Security Assistant
             <button onClick={() => setIsOpen(false)}>✖</button>
           </div>
 
           <div className="flex-1 p-3 overflow-y-auto space-y-2 bg-gray-100 text-sm">
-            {messages.map((msg, index) => (
+            {messages.map((msg, i) => (
               <div
-                key={index}
+                key={i}
                 className={`p-2 rounded-lg max-w-xs whitespace-pre-line ${
                   msg.sender === "user"
                     ? "bg-indigo-500 text-white ml-auto"
-                    : "bg-gray-300 text-black"
+                    : "bg-gray-300"
                 }`}
               >
                 {msg.text}
@@ -183,20 +186,20 @@ ${highRiskCount > 5
 
           <div className="flex border-t">
             <input
-              type="text"
-              placeholder="Ask about system security..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
               className="flex-1 p-2 outline-none text-sm"
+              placeholder="Ask security questions..."
             />
             <button
               onClick={handleSend}
-              className="bg-indigo-600 text-white px-4 hover:bg-indigo-700"
+              className="bg-indigo-600 text-white px-4"
             >
               Send
             </button>
           </div>
+
         </div>
       )}
     </>

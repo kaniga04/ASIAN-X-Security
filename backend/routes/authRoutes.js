@@ -4,33 +4,41 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const geoip = require("geoip-lite");
 const UAParser = require("ua-parser-js");
+const nodemailer = require("nodemailer");
+const passport = require("passport");
 
 const User = require("../models/User");
 const LoginLog = require("../models/LoginLog");
 
-const SECRET = "SECRETKEY123";
+const SECRET = process.env.JWT_SECRET;
 
-/* ================= GET CLIENT IP ================= */
-const getClientIP = (req) => {
-  const forwarded = req.headers["x-forwarded-for"];
-
-  if (forwarded) {
-    return forwarded.split(",")[0].trim();
+/* ================= EMAIL CONFIG ================= */
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
   }
+});
 
-  return (
-    req.socket?.remoteAddress ||
-    req.connection?.remoteAddress ||
-    req.ip ||
-    "127.0.0.1"
-  );
+const sendOTP = async (email, otp) => {
+  await transporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: "OTP Verification",
+    text: `Your OTP is: ${otp}`
+  });
 };
 
-/* ================= GET DEVICE INFO ================= */
-const getDeviceInfo = (req) => {
-  const ua = req.headers["user-agent"] || "";
-  const parser = new UAParser(ua);
+/* ================= HELPERS ================= */
+const getClientIP = (req) => {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return req.socket?.remoteAddress || req.ip || "127.0.0.1";
+};
 
+const getDeviceInfo = (req) => {
+  const parser = new UAParser(req.headers["user-agent"] || "");
   const device = parser.getDevice();
   const browser = parser.getBrowser();
   const os = parser.getOS();
@@ -40,189 +48,160 @@ const getDeviceInfo = (req) => {
       device.vendor || device.model
         ? `${device.vendor || ""} ${device.model || ""}`
         : "Desktop",
-
-    browser:
-      browser.name && browser.version
-        ? `${browser.name} ${browser.version}`
-        : "Unknown",
-
-    os:
-      os.name && os.version
-        ? `${os.name} ${os.version}`
-        : "Unknown"
+    browser: browser.name
+      ? `${browser.name} ${browser.version}`
+      : "Unknown",
+    os: os.name ? `${os.name} ${os.version}` : "Unknown"
   };
 };
 
-/* ================= THREAT EXPLANATION ================= */
-const generateThreatExplanation = (log, context = {}) => {
-  let reasons = [];
-  let recommendations = [];
+/* ================= REGISTER (SEND OTP) ================= */
+router.post("/register", async (req, res) => {
+  try {
+    const { name, email } = req.body;
 
-  if (context.newIP) {
-    reasons.push("Login from a new or unknown IP address");
-    recommendations.push("Verify user identity");
+    let user = await User.findOne({ email });
+
+    if (user && user.isVerified) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    if (!user) {
+      user = new User({
+        name,
+        email,
+        otp,
+        otpExpiry: Date.now() + 5 * 60 * 1000,
+        isVerified: false
+      });
+    } else {
+      user.otp = otp;
+      user.otpExpiry = Date.now() + 5 * 60 * 1000;
+    }
+
+    await user.save();
+    await sendOTP(email, otp);
+
+    res.json({ message: "OTP sent to email" });
+
+  } catch (err) {
+    res.status(500).json({ message: "Error sending OTP" });
+  }
+});
+
+/* ================= VERIFY OTP ================= */
+router.post("/verify-otp", async (req, res) => {
+  const { email, otp } = req.body;
+
+  const user = await User.findOne({ email });
+
+  if (!user || user.otp !== otp || user.otpExpiry < Date.now()) {
+    return res.status(400).json({ message: "Invalid or expired OTP" });
   }
 
-  if (context.lateNight) {
-    reasons.push("Login attempt during unusual hours");
-    recommendations.push("Check user activity pattern");
+  user.isVerified = true;
+  user.otp = null;
+  user.otpExpiry = null;
+
+  await user.save();
+
+  res.json({ message: "Email verified successfully" });
+});
+
+/* ================= SET PASSWORD ================= */
+router.post("/set-password", async (req, res) => {
+  const { email, password } = req.body;
+
+  const user = await User.findOne({ email});
+
+  if (!user || !user.isVerified) {
+    return res.status(400).json({ message: "Verify email first" });
   }
 
-  if (context.failedAttempts > 3) {
-    reasons.push("Multiple failed login attempts detected");
-    recommendations.push("Temporarily block IP address");
+  user.password = await bcrypt.hash(password, 10);
+
+  await user.save();
+
+  res.json({ message: "Password set successfully" });
+});
+
+/* ================= FORGOT PASSWORD ================= */
+router.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+
+  const user = await User.findOne({ email });
+  if (!user) return res.status(400).json({ message: "User not found" });
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  user.otp = otp;
+  user.otpExpiry = Date.now() + 10 * 60 * 1000;
+
+  await user.save();
+  await sendOTP(email, otp);
+
+  res.json({ message: "OTP sent to email" });
+});
+
+/* ================= RESET PASSWORD ================= */
+router.post("/reset-password", async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+
+  const user = await User.findOne({ email });
+
+  if (!user || user.otp !== otp || user.otpExpiry < Date.now()) {
+    return res.status(400).json({ message: "Invalid OTP" });
   }
 
-  if (log.mlScore >= 0.7) {
-    reasons.push("High anomaly score detected");
-    recommendations.push("Enable 2FA");
-  }
+  user.password = await bcrypt.hash(newPassword, 10);
+  user.otp = null;
+  user.otpExpiry = null;
 
-  if (reasons.length === 0) {
-    reasons.push("Normal login behavior");
-    recommendations.push("No action needed");
-  }
+  await user.save();
 
-  let riskLevel = "LOW";
-  if (log.riskScore >= 70) riskLevel = "HIGH";
-  else if (log.riskScore >= 40) riskLevel = "MEDIUM";
-
-  return {
-    title: "Threat Analysis Report",
-    riskLevel,
-    reasons,
-    recommendations
-  };
-};
+  res.json({ message: "Password reset successful" });
+});
 
 /* ================= LOGIN ================= */
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({
-      email: email.toLowerCase()
-    });
+    const user = await User.findOne({ email });
 
-    const cleanIP = getClientIP(req);
-    const geo = geoip.lookup(cleanIP);
+    const ip = getClientIP(req);
+    const geo = geoip.lookup(ip);
     const country = geo ? geo.country : "Unknown";
-
     const deviceInfo = getDeviceInfo(req);
-    const io = req.app.get("io");
 
-    /* ===== USER NOT FOUND ===== */
     if (!user) {
-      const explanation = generateThreatExplanation(
-        { riskScore: 60, mlScore: 0.6 },
-        { newIP: true, failedAttempts: 5 }
-      );
-
-      const log = await LoginLog.create({
-        email,
-        role: "guest",
-        ipAddress: cleanIP,
-        country,
-        ...deviceInfo,
-        status: "failed",
-        riskScore: 60,
-        mlScore: 0.6,
-        isAnomaly: true,
-        isSimulated: false, // ✅ FIX
-        threatExplanation: explanation
-      });
-
-      io.emit("attackDetected", log);
-
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    /* ===== PASSWORD CHECK ===== */
+    if (!user.isVerified) {
+      return res.status(400).json({
+        message: "Please verify your email first"
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      const explanation = generateThreatExplanation(
-        { riskScore: 60, mlScore: 0.6 },
-        { failedAttempts: 5 }
-      );
-
-      const log = await LoginLog.create({
-        userId: user._id,
-        email: user.email,
-        role: user.role,
-        ipAddress: cleanIP,
-        country,
-        ...deviceInfo,
-        status: "failed",
-        riskScore: 60,
-        mlScore: 0.6,
-        isAnomaly: true,
-        isSimulated: false, // ✅ FIX
-        threatExplanation: explanation
-      });
-
-      io.emit("attackDetected", log);
-
       return res.status(400).json({ message: "Invalid credentials" });
     }
-
-    /* ===== SUCCESS LOGIN ===== */
-    const previousLogins = await LoginLog.find({
-      userId: user._id,
-      status: "success"
-    });
-
-    const knownIPs = previousLogins.map(log => log.ipAddress);
-
-    let riskScore = 10;
-    let isAnomaly = false;
-    let newIP = false;
-    let lateNight = false;
-
-    if (!knownIPs.includes(cleanIP) && previousLogins.length > 0) {
-      riskScore += 30;
-      isAnomaly = true;
-      newIP = true;
-    }
-
-    const hour = new Date().getHours();
-    if (hour < 6) {
-      riskScore += 20;
-      isAnomaly = true;
-      lateNight = true;
-    }
-
-    const failedAttempts = await LoginLog.countDocuments({
-      ipAddress: cleanIP,
-      status: "failed",
-      createdAt: {
-        $gte: new Date(Date.now() - 10 * 60 * 1000)
-      }
-    });
-
-    if (failedAttempts > 3) {
-      riskScore += 20;
-      isAnomaly = true;
-    }
-
-    const explanation = generateThreatExplanation(
-      { riskScore, mlScore: 0.2 },
-      { newIP, lateNight, failedAttempts }
-    );
 
     await LoginLog.create({
       userId: user._id,
       email: user.email,
       role: user.role,
-      ipAddress: cleanIP,
+      ipAddress: ip,
       country,
       ...deviceInfo,
       status: "success",
-      riskScore,
-      mlScore: 0.2,
-      isAnomaly,
-      isSimulated: false, // ✅ FIX
-      threatExplanation: explanation
+      riskScore: 10,
+      isAnomaly: false
     });
 
     const token = jwt.sign(
@@ -241,167 +220,27 @@ router.post("/login", async (req, res) => {
       }
     });
 
-  } catch (error) {
-    console.error("LOGIN ERROR:", error);
+  } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
 });
 
-/* ================= 🚨 ATTACK SIMULATION ================= */
-router.post("/simulate-attack", async (req, res) => {
-  try {
-    const { type } = req.body;
+/* ================= GOOGLE AUTH ================= */
+router.get("/google",
+  passport.authenticate("google", { scope: ["profile", "email"] })
+);
 
-    let fakeLogs = [];
+router.get("/google/callback",
+  passport.authenticate("google", { failureRedirect: "/" }),
+  (req, res) => {
+    const token = jwt.sign(
+      { id: req.user._id, role: req.user.role },
+      SECRET,
+      { expiresIn: "1d" }
+    );
 
-    if (type === "brute_force") {
-      for (let i = 0; i < 20; i++) {
-        fakeLogs.push({
-          email: "admin@gmail.com",
-          role: "attacker",
-          ipAddress: `192.168.1.${i % 3}`,
-          country: "Unknown",
-          device: "Bot",
-          browser: "Script",
-          os: "Unknown",
-          status: "failed",
-          riskScore: 80,
-          mlScore: 0.9,
-          isAnomaly: true,
-          isSimulated: true, // ✅ FIX
-          threatExplanation: generateThreatExplanation(
-            { riskScore: 80, mlScore: 0.9 },
-            { failedAttempts: 10, newIP: true }
-          )
-        });
-      }
-    }
-
-    if (type === "credential_stuffing") {
-      for (let i = 0; i < 30; i++) {
-        fakeLogs.push({
-          email: `user${i % 5}@gmail.com`,
-          role: "attacker",
-          ipAddress: `10.0.0.${i}`,
-          country: "Multiple",
-          device: "Bot",
-          browser: "Script",
-          os: "Unknown",
-          status: "failed",
-          riskScore: 85,
-          mlScore: 0.95,
-          isAnomaly: true,
-          isSimulated: true, // ✅ FIX
-          threatExplanation: generateThreatExplanation(
-            { riskScore: 85, mlScore: 0.95 },
-            { failedAttempts: 8, newIP: true }
-          )
-        });
-      }
-    }
-
-    if (type === "normal_traffic") {
-      for (let i = 0; i < 10; i++) {
-        fakeLogs.push({
-          email: `user${i}@gmail.com`,
-          role: "user",
-          ipAddress: `223.178.83.${i}`,
-          country: "IN",
-          device: "Desktop",
-          browser: "Chrome",
-          os: "Windows",
-          status: "success",
-          riskScore: 10,
-          mlScore: 0.1,
-          isAnomaly: false,
-          isSimulated: true, // ✅ FIX
-          threatExplanation: generateThreatExplanation(
-            { riskScore: 10, mlScore: 0.1 },
-            {}
-          )
-        });
-      }
-    }
-
-    const insertedLogs = await LoginLog.insertMany(fakeLogs);
-
-    const io = req.app.get("io");
-    io.emit("attackDetected", insertedLogs);
-
-    res.json({
-      message: "Attack simulated successfully",
-      type,
-      count: insertedLogs.length
-    });
-
-  } catch (error) {
-    console.error("SIMULATION ERROR:", error);
-    res.status(500).json({ message: "Simulation failed" });
+    res.redirect(`${process.env.FRONTEND_URL}/oauth-success?token=${token}`);
   }
-});
-
-/* ================= 📊 GET ALL LOGS ================= */
-router.get("/logs", async (req, res) => {
-  try {
-    const logs = await LoginLog.find()
-      .sort({ createdAt: -1 })
-      .limit(100);
-
-    console.log("✅ Logs fetched:", logs.length);
-
-    res.json(logs);
-  } catch (error) {
-    console.error("❌ FETCH LOGS ERROR:", error);
-    res.status(500).json({ message: "Error fetching logs" });
-  }
-});
-
-/* ================= 👤 GET ALL USERS ================= */
-router.get("/users", async (req, res) => {
-  try {
-    const users = await User.find().select("-password");
-
-    console.log("👤 USERS:", users.length);
-
-    res.json(users);
-  } catch (error) {
-    console.error("FETCH USERS ERROR:", error);
-    res.status(500).json({ message: "Error fetching users" });
-  }
-});
-
-/* ================= REGISTER ================= */
-router.post("/register", async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
-
-    // check existing user
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-
-    // hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // create user
-    const newUser = new User({
-      name,
-      email: email.toLowerCase(),
-      password: hashedPassword,
-      role: "user"
-    });
-
-    await newUser.save();
-
-    res.status(201).json({
-      message: "User registered successfully"
-    });
-
-  } catch (error) {
-    console.error("REGISTER ERROR:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-});
+);
 
 module.exports = router;

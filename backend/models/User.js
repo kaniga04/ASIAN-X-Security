@@ -17,8 +17,7 @@ const userSchema = new mongoose.Schema(
     },
 
     password: {
-      type: String,
-      required: true
+      type: String
     },
 
     role: {
@@ -28,6 +27,22 @@ const userSchema = new mongoose.Schema(
     },
 
     isBlocked: {
+      type: Boolean,
+      default: false
+    },
+
+    // ✅ OTP + Verification
+    otp: {
+      type: String,
+      default: null
+    },
+
+    otpExpiry: {
+      type: Date,
+      default: null
+    },
+
+    isVerified: {
       type: Boolean,
       default: false
     },
@@ -42,7 +57,7 @@ const userSchema = new mongoose.Schema(
       default: null
     }
   },
-  { timestamps: true } // Automatically adds createdAt & updatedAt
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("User", userSchema);

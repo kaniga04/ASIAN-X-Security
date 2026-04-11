@@ -34,6 +34,18 @@ app.use(cors({
 
 app.use(express.json());
 
+const passport = require("passport");
+const session = require("express-session");
+
+app.use(session({
+  secret: "secret",
+  resave: false,
+  saveUninitialized: true
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
 /* ================= SOCKET.IO ================= */
 
 // ✅ Use same CORS restriction for socket

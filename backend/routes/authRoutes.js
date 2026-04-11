@@ -56,15 +56,16 @@ const getDeviceInfo = (req) => {
 };
 
 /* ================= REGISTER (SEND OTP) ================= */
-router.post("/register", async (req, res) => {
+/* ================= SEND OTP ================= */
+router.post("/send-otp", async (req, res) => {
   try {
     const { name, email } = req.body;
 
-    let user = await User.findOne({ email });
-
-    if (user && user.isVerified) {
-      return res.status(400).json({ message: "User already exists" });
+    if (!email) {
+      return res.status(400).json({ message: "Email required" });
     }
+
+    let user = await User.findOne({ email });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -82,49 +83,64 @@ router.post("/register", async (req, res) => {
     }
 
     await user.save();
-    await sendOTP(email, otp);
 
-    res.json({ message: "OTP sent to email" });
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Your OTP Code",
+      text: `Your OTP is ${otp}`
+    });
+
+    res.json({ message: "OTP sent successfully" });
 
   } catch (err) {
-    res.status(500).json({ message: "Error sending OTP" });
+    console.error(err);
+    res.status(500).json({ message: "Failed to send OTP" });
   }
 });
-
 /* ================= VERIFY OTP ================= */
 router.post("/verify-otp", async (req, res) => {
-  const { email, otp } = req.body;
+  try {
+    const { email, otp } = req.body;
 
-  const user = await User.findOne({ email });
+    const user = await User.findOne({ email });
 
-  if (!user || user.otp !== otp || user.otpExpiry < Date.now()) {
-    return res.status(400).json({ message: "Invalid or expired OTP" });
+    if (!user || user.otp !== otp || user.otpExpiry < Date.now()) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    user.isVerified = true;
+    user.otp = null;
+    user.otpExpiry = null;
+
+    await user.save();
+
+    res.json({ message: "OTP verified" });
+
+  } catch {
+    res.status(500).json({ message: "Verification failed" });
   }
-
-  user.isVerified = true;
-  user.otp = null;
-  user.otpExpiry = null;
-
-  await user.save();
-
-  res.json({ message: "Email verified successfully" });
 });
-
 /* ================= SET PASSWORD ================= */
 router.post("/set-password", async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  const user = await User.findOne({ email});
+    const user = await User.findOne({ email });
 
-  if (!user || !user.isVerified) {
-    return res.status(400).json({ message: "Verify email first" });
+    if (!user || !user.isVerified) {
+      return res.status(400).json({ message: "Verify email first" });
+    }
+
+    user.password = await bcrypt.hash(password, 10);
+
+    await user.save();
+
+    res.json({ message: "Account created successfully" });
+
+  } catch {
+    res.status(500).json({ message: "Error setting password" });
   }
-
-  user.password = await bcrypt.hash(password, 10);
-
-  await user.save();
-
-  res.json({ message: "Password set successfully" });
 });
 
 /* ================= FORGOT PASSWORD ================= */

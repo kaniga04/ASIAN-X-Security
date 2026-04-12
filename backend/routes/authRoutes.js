@@ -14,7 +14,9 @@ const SECRET = process.env.JWT_SECRET;
 
 /* ================= EMAIL CONFIG ================= */
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587, // ✅ CHANGE PORT
+  secure: false, // ✅ IMPORTANT
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
@@ -49,6 +51,11 @@ router.post("/send-otp", async (req, res) => {
   try {
     const { name, email } = req.body;
 
+    // ✅ ADD VALIDATION
+    if (!name || !email) {
+      return res.status(400).json({ message: "Name and Email required" });
+    }
+
     let user = await User.findOne({ email });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -75,6 +82,8 @@ router.post("/send-otp", async (req, res) => {
       text: `Your OTP is: ${otp}`
     });
 
+    console.log("✅ OTP SENT:", email, otp);
+
     res.json({ message: "OTP sent successfully" });
 
   } catch (err) {
@@ -82,7 +91,6 @@ router.post("/send-otp", async (req, res) => {
     res.status(500).json({ message: "Failed to send OTP" });
   }
 });
-
 /* ================= VERIFY OTP ================= */
 router.post("/verify-otp", async (req, res) => {
   try {

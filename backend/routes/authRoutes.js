@@ -9,7 +9,7 @@ const nodemailer = require("nodemailer");
 const User = require("../models/User");
 const LoginLog = require("../models/LoginLog");
 
-const SECRET = process.env.JWT_SECRET;
+const SECRET = process.env.JWT_SECRET || "supersecret";
 
 /* ================= EMAIL CONFIG ================= */
 const transporter = nodemailer.createTransport({
@@ -68,7 +68,7 @@ router.post("/register", async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      isVerified: true, // ✅ skip OTP
+      isVerified: true, // skip OTP
     });
 
     await user.save();
@@ -133,6 +133,10 @@ router.post("/verify-otp", async (req, res) => {
   try {
     const { email, otp, password } = req.body;
 
+    if (!password) {
+      return res.status(400).json({ message: "Password required" });
+    }
+
     const user = await User.findOne({ email });
 
     if (!user || user.otp !== otp || user.otpExpiry < Date.now()) {
@@ -182,8 +186,13 @@ router.post("/login", async (req, res) => {
 
     const ip = getClientIP(req);
     const geo = geoip.lookup(ip);
+
     const country = geo?.country || "Unknown";
     const state = geo?.region || "Unknown";
+
+    console.log("🌍 GEO:", geo);
+    console.log("📍 Country:", country);
+    console.log("📍 State:", state);
 
     const deviceInfo = getDeviceInfo(req);
 
@@ -261,6 +270,7 @@ router.post("/simulate-attack", async (req, res) => {
         role: "attacker",
         ipAddress: `192.168.1.${i}`,
         country: "Unknown",
+        state: "Unknown",
         device: "Bot",
         browser: "Script",
         os: "Unknown",

@@ -5,7 +5,6 @@ const jwt = require("jsonwebtoken");
 const geoip = require("geoip-lite");
 const UAParser = require("ua-parser-js");
 const nodemailer = require("nodemailer");
-const passport = require("passport");
 
 const User = require("../models/User");
 const LoginLog = require("../models/LoginLog");
@@ -15,12 +14,12 @@ const SECRET = process.env.JWT_SECRET;
 /* ================= EMAIL CONFIG ================= */
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 587, // ✅ CHANGE PORT
-  secure: false, // ✅ IMPORTANT
+  port: 587,
+  secure: false,
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
+    pass: process.env.EMAIL_PASS,
+  },
 });
 
 /* ================= HELPERS ================= */
@@ -42,16 +41,52 @@ const getDeviceInfo = (req) => {
         ? `${device.vendor || ""} ${device.model || ""}`
         : "Desktop",
     browser: browser.name || "Unknown",
-    os: os.name || "Unknown"
+    os: os.name || "Unknown",
   };
 };
 
-/* ================= SEND OTP ================= */
+/* ===================================================== */
+/* ================= SIMPLE REGISTER ===================== */
+/* ===================================================== */
+router.post("/register", async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "All fields required" });
+    }
+
+    let user = await User.findOne({ email });
+
+    if (user) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    user = new User({
+      name,
+      email,
+      password: hashedPassword,
+      isVerified: true, // ✅ skip OTP
+    });
+
+    await user.save();
+
+    res.json({ message: "Registered successfully" });
+  } catch (err) {
+    console.error("REGISTER ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/* ===================================================== */
+/* ================= SEND OTP ============================ */
+/* ===================================================== */
 router.post("/send-otp", async (req, res) => {
   try {
     const { name, email } = req.body;
 
-    // ✅ ADD VALIDATION
     if (!name || !email) {
       return res.status(400).json({ message: "Name and Email required" });
     }
@@ -66,7 +101,7 @@ router.post("/send-otp", async (req, res) => {
         email,
         otp,
         otpExpiry: Date.now() + 5 * 60 * 1000,
-        isVerified: false
+        isVerified: false,
       });
     } else {
       user.otp = otp;
@@ -79,19 +114,21 @@ router.post("/send-otp", async (req, res) => {
       from: process.env.EMAIL_USER,
       to: email,
       subject: "Your OTP Code",
-      text: `Your OTP is: ${otp}`
+      text: `Your OTP is: ${otp}`,
     });
 
     console.log("✅ OTP SENT:", email, otp);
 
     res.json({ message: "OTP sent successfully" });
-
   } catch (err) {
     console.error("OTP ERROR:", err);
     res.status(500).json({ message: "Failed to send OTP" });
   }
 });
-/* ================= VERIFY OTP ================= */
+
+/* ===================================================== */
+/* ================= VERIFY OTP ========================== */
+/* ===================================================== */
 router.post("/verify-otp", async (req, res) => {
   try {
     const { email, otp, password } = req.body;
@@ -110,17 +147,22 @@ router.post("/verify-otp", async (req, res) => {
     await user.save();
 
     res.json({ message: "Account created successfully" });
-
   } catch (err) {
     console.error("VERIFY ERROR:", err);
     res.status(500).json({ message: "Verification failed" });
   }
 });
 
-/* ================= LOGIN ================= */
+/* ===================================================== */
+/* ================= LOGIN =============================== */
+/* ===================================================== */
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email & password required" });
+    }
 
     const user = await User.findOne({ email });
 
@@ -153,7 +195,7 @@ router.post("/login", async (req, res) => {
       status: "success",
       riskScore: 10,
       isAnomaly: false,
-      isSimulated: false
+      isSimulated: false,
     });
 
     const token = jwt.sign(
@@ -168,17 +210,18 @@ router.post("/login", async (req, res) => {
       user: {
         id: user._id,
         name: user.name,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
-
   } catch (err) {
     console.error("LOGIN ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-/* ================= GET LOGS ================= */
+/* ===================================================== */
+/* ================= GET LOGS ============================ */
+/* ===================================================== */
 router.get("/logs", async (req, res) => {
   try {
     const logs = await LoginLog.find().sort({ createdAt: -1 });
@@ -189,7 +232,9 @@ router.get("/logs", async (req, res) => {
   }
 });
 
-/* ================= GET USERS ================= */
+/* ===================================================== */
+/* ================= GET USERS =========================== */
+/* ===================================================== */
 router.get("/users", async (req, res) => {
   try {
     const users = await User.find().select("-password");
@@ -200,7 +245,9 @@ router.get("/users", async (req, res) => {
   }
 });
 
-/* ================= SIMULATE ATTACK ================= */
+/* ===================================================== */
+/* ================= SIMULATE ATTACK ===================== */
+/* ===================================================== */
 router.post("/simulate-attack", async (req, res) => {
   try {
     const fakeLogs = [];
@@ -217,14 +264,13 @@ router.post("/simulate-attack", async (req, res) => {
         status: "failed",
         riskScore: 80,
         isAnomaly: true,
-        isSimulated: true
+        isSimulated: true,
       });
     }
 
     await LoginLog.insertMany(fakeLogs);
 
     res.json({ message: "Attack simulated" });
-
   } catch (err) {
     console.error("SIM ERROR:", err);
     res.status(500).json({ message: "Simulation failed" });

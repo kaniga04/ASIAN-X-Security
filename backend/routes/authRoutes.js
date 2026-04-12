@@ -183,6 +183,8 @@ router.post("/login", async (req, res) => {
     const ip = getClientIP(req);
     const geo = geoip.lookup(ip);
     const country = geo ? geo.country : "Unknown";
+    const state = geo?.region || "Unknown";
+
     const deviceInfo = getDeviceInfo(req);
 
     await LoginLog.create({

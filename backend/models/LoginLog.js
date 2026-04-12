@@ -12,6 +12,7 @@ const LoginLogSchema = new mongoose.Schema({
 
   ipAddress: String,
   country: String,
+  state: String,
 
   // ✅ DEVICE INFO
   device: {

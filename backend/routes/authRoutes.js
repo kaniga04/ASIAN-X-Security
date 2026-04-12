@@ -6,6 +6,8 @@ const geoip = require("geoip-lite");
 const UAParser = require("ua-parser-js");
 const nodemailer = require("nodemailer");
 
+const calculateRiskScore = require("../utils/riskEngine");
+
 const User = require("../models/User");
 const LoginLog = require("../models/LoginLog");
 
@@ -68,7 +70,7 @@ router.post("/register", async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      isVerified: true, // skip OTP
+      isVerified: true,
     });
 
     await user.save();
@@ -77,83 +79,6 @@ router.post("/register", async (req, res) => {
   } catch (err) {
     console.error("REGISTER ERROR:", err);
     res.status(500).json({ message: "Server error" });
-  }
-});
-
-/* ===================================================== */
-/* ================= SEND OTP ============================ */
-/* ===================================================== */
-router.post("/send-otp", async (req, res) => {
-  try {
-    const { name, email } = req.body;
-
-    if (!name || !email) {
-      return res.status(400).json({ message: "Name and Email required" });
-    }
-
-    let user = await User.findOne({ email });
-
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    if (!user) {
-      user = new User({
-        name,
-        email,
-        otp,
-        otpExpiry: Date.now() + 5 * 60 * 1000,
-        isVerified: false,
-      });
-    } else {
-      user.otp = otp;
-      user.otpExpiry = Date.now() + 5 * 60 * 1000;
-    }
-
-    await user.save();
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Your OTP Code",
-      text: `Your OTP is: ${otp}`,
-    });
-
-    console.log("✅ OTP SENT:", email, otp);
-
-    res.json({ message: "OTP sent successfully" });
-  } catch (err) {
-    console.error("OTP ERROR:", err);
-    res.status(500).json({ message: "Failed to send OTP" });
-  }
-});
-
-/* ===================================================== */
-/* ================= VERIFY OTP ========================== */
-/* ===================================================== */
-router.post("/verify-otp", async (req, res) => {
-  try {
-    const { email, otp, password } = req.body;
-
-    if (!password) {
-      return res.status(400).json({ message: "Password required" });
-    }
-
-    const user = await User.findOne({ email });
-
-    if (!user || user.otp !== otp || user.otpExpiry < Date.now()) {
-      return res.status(400).json({ message: "Invalid or expired OTP" });
-    }
-
-    user.password = await bcrypt.hash(password, 10);
-    user.isVerified = true;
-    user.otp = null;
-    user.otpExpiry = null;
-
-    await user.save();
-
-    res.json({ message: "Account created successfully" });
-  } catch (err) {
-    console.error("VERIFY ERROR:", err);
-    res.status(500).json({ message: "Verification failed" });
   }
 });
 
@@ -184,18 +109,34 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
+    /* ================= GEO + DEVICE ================= */
     const ip = getClientIP(req);
     const geo = geoip.lookup(ip);
 
     const country = geo?.country || "Unknown";
     const state = geo?.region || "Unknown";
 
-    console.log("🌍 GEO:", geo);
-    console.log("📍 Country:", country);
-    console.log("📍 State:", state);
-
     const deviceInfo = getDeviceInfo(req);
 
+    /* ================= GET RECENT LOGS ================= */
+    const recentLogs = await LoginLog.find({ email: user.email })
+      .sort({ createdAt: -1 })
+      .limit(20);
+
+    /* ================= CALCULATE RISK ================= */
+    const risk = await calculateRiskScore({
+      user,
+      loginData: {
+        device: deviceInfo.device,
+        state,
+        failedAttempts: 0,
+      },
+      recentLogs,
+    });
+
+    console.log("🔥 RISK:", risk);
+
+    /* ================= SAVE LOGIN LOG ================= */
     await LoginLog.create({
       userId: user._id,
       email: user.email,
@@ -205,11 +146,17 @@ router.post("/login", async (req, res) => {
       state,
       ...deviceInfo,
       status: "success",
-      riskScore: 10,
-      isAnomaly: false,
-      isSimulated: false,
+
+      riskScore: risk.riskScore,
+      isAnomaly: risk.riskLevel !== "Normal",
+
+      threatExplanation: {
+        riskLevel: risk.riskLevel,
+        reasons: risk.reasons,
+      },
     });
 
+    /* ================= TOKEN ================= */
     const token = jwt.sign(
       { id: user._id, role: user.role },
       SECRET,
@@ -225,6 +172,7 @@ router.post("/login", async (req, res) => {
         role: user.role,
       },
     });
+
   } catch (err) {
     console.error("LOGIN ERROR:", err);
     res.status(500).json({ message: "Server error" });

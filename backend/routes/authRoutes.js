@@ -21,24 +21,15 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-const sendOTP = async (email, otp) => {
-  await transporter.sendMail({
-    from: process.env.EMAIL_USER,
-    to: email,
-    subject: "OTP Verification",
-    text: `Your OTP is: ${otp}`
-  });
-};
-
 /* ================= HELPERS ================= */
 const getClientIP = (req) => {
   const forwarded = req.headers["x-forwarded-for"];
-  if (forwarded) return forwarded.split(",")[0].trim();
-  return req.socket?.remoteAddress || req.ip || "127.0.0.1";
+  if (forwarded) return forwarded.split(",")[0];
+  return req.socket?.remoteAddress || req.ip;
 };
 
 const getDeviceInfo = (req) => {
-  const parser = new UAParser(req.headers["user-agent"] || "");
+  const parser = new UAParser(req.headers["user-agent"]);
   const device = parser.getDevice();
   const browser = parser.getBrowser();
   const os = parser.getOS();
@@ -48,22 +39,15 @@ const getDeviceInfo = (req) => {
       device.vendor || device.model
         ? `${device.vendor || ""} ${device.model || ""}`
         : "Desktop",
-    browser: browser.name
-      ? `${browser.name} ${browser.version}`
-      : "Unknown",
-    os: os.name ? `${os.name} ${os.version}` : "Unknown"
+    browser: browser.name || "Unknown",
+    os: os.name || "Unknown"
   };
 };
 
-/* ================= REGISTER (SEND OTP) ================= */
 /* ================= SEND OTP ================= */
 router.post("/send-otp", async (req, res) => {
   try {
     const { name, email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ message: "Email required" });
-    }
 
     let user = await User.findOne({ email });
 
@@ -88,20 +72,21 @@ router.post("/send-otp", async (req, res) => {
       from: process.env.EMAIL_USER,
       to: email,
       subject: "Your OTP Code",
-      text: `Your OTP is ${otp}`
+      text: `Your OTP is: ${otp}`
     });
 
     res.json({ message: "OTP sent successfully" });
 
   } catch (err) {
-    console.error(err);
+    console.error("OTP ERROR:", err);
     res.status(500).json({ message: "Failed to send OTP" });
   }
 });
+
 /* ================= VERIFY OTP ================= */
 router.post("/verify-otp", async (req, res) => {
   try {
-    const { email, otp } = req.body;
+    const { email, otp, password } = req.body;
 
     const user = await User.findOne({ email });
 
@@ -109,75 +94,19 @@ router.post("/verify-otp", async (req, res) => {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
+    user.password = await bcrypt.hash(password, 10);
     user.isVerified = true;
     user.otp = null;
     user.otpExpiry = null;
 
     await user.save();
 
-    res.json({ message: "OTP verified" });
-
-  } catch {
-    res.status(500).json({ message: "Verification failed" });
-  }
-});
-/* ================= SET PASSWORD ================= */
-router.post("/set-password", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email });
-
-    if (!user || !user.isVerified) {
-      return res.status(400).json({ message: "Verify email first" });
-    }
-
-    user.password = await bcrypt.hash(password, 10);
-
-    await user.save();
-
     res.json({ message: "Account created successfully" });
 
-  } catch {
-    res.status(500).json({ message: "Error setting password" });
+  } catch (err) {
+    console.error("VERIFY ERROR:", err);
+    res.status(500).json({ message: "Verification failed" });
   }
-});
-
-/* ================= FORGOT PASSWORD ================= */
-router.post("/forgot-password", async (req, res) => {
-  const { email } = req.body;
-
-  const user = await User.findOne({ email });
-  if (!user) return res.status(400).json({ message: "User not found" });
-
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-  user.otp = otp;
-  user.otpExpiry = Date.now() + 10 * 60 * 1000;
-
-  await user.save();
-  await sendOTP(email, otp);
-
-  res.json({ message: "OTP sent to email" });
-});
-
-/* ================= RESET PASSWORD ================= */
-router.post("/reset-password", async (req, res) => {
-  const { email, otp, newPassword } = req.body;
-
-  const user = await User.findOne({ email });
-
-  if (!user || user.otp !== otp || user.otpExpiry < Date.now()) {
-    return res.status(400).json({ message: "Invalid OTP" });
-  }
-
-  user.password = await bcrypt.hash(newPassword, 10);
-  user.otp = null;
-  user.otpExpiry = null;
-
-  await user.save();
-
-  res.json({ message: "Password reset successful" });
 });
 
 /* ================= LOGIN ================= */
@@ -187,19 +116,12 @@ router.post("/login", async (req, res) => {
 
     const user = await User.findOne({ email });
 
-    const ip = getClientIP(req);
-    const geo = geoip.lookup(ip);
-    const country = geo ? geo.country : "Unknown";
-    const deviceInfo = getDeviceInfo(req);
-
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
     if (!user.isVerified) {
-      return res.status(400).json({
-        message: "Please verify your email first"
-      });
+      return res.status(400).json({ message: "Verify your email first" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -207,6 +129,11 @@ router.post("/login", async (req, res) => {
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
+
+    const ip = getClientIP(req);
+    const geo = geoip.lookup(ip);
+    const country = geo ? geo.country : "Unknown";
+    const deviceInfo = getDeviceInfo(req);
 
     await LoginLog.create({
       userId: user._id,
@@ -217,7 +144,8 @@ router.post("/login", async (req, res) => {
       ...deviceInfo,
       status: "success",
       riskScore: 10,
-      isAnomaly: false
+      isAnomaly: false,
+      isSimulated: false
     });
 
     const token = jwt.sign(
@@ -237,26 +165,62 @@ router.post("/login", async (req, res) => {
     });
 
   } catch (err) {
+    console.error("LOGIN ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-/* ================= GOOGLE AUTH ================= */
-router.get("/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
-);
-
-router.get("/google/callback",
-  passport.authenticate("google", { failureRedirect: "/" }),
-  (req, res) => {
-    const token = jwt.sign(
-      { id: req.user._id, role: req.user.role },
-      SECRET,
-      { expiresIn: "1d" }
-    );
-
-    res.redirect(`${process.env.FRONTEND_URL}/oauth-success?token=${token}`);
+/* ================= GET LOGS ================= */
+router.get("/logs", async (req, res) => {
+  try {
+    const logs = await LoginLog.find().sort({ createdAt: -1 });
+    res.json(logs);
+  } catch (err) {
+    console.error("LOG ERROR:", err);
+    res.status(500).json({ message: "Error fetching logs" });
   }
-);
+});
+
+/* ================= GET USERS ================= */
+router.get("/users", async (req, res) => {
+  try {
+    const users = await User.find().select("-password");
+    res.json(users);
+  } catch (err) {
+    console.error("USER ERROR:", err);
+    res.status(500).json({ message: "Error fetching users" });
+  }
+});
+
+/* ================= SIMULATE ATTACK ================= */
+router.post("/simulate-attack", async (req, res) => {
+  try {
+    const fakeLogs = [];
+
+    for (let i = 0; i < 10; i++) {
+      fakeLogs.push({
+        email: `attacker${i}@gmail.com`,
+        role: "attacker",
+        ipAddress: `192.168.1.${i}`,
+        country: "Unknown",
+        device: "Bot",
+        browser: "Script",
+        os: "Unknown",
+        status: "failed",
+        riskScore: 80,
+        isAnomaly: true,
+        isSimulated: true
+      });
+    }
+
+    await LoginLog.insertMany(fakeLogs);
+
+    res.json({ message: "Attack simulated" });
+
+  } catch (err) {
+    console.error("SIM ERROR:", err);
+    res.status(500).json({ message: "Simulation failed" });
+  }
+});
 
 module.exports = router;

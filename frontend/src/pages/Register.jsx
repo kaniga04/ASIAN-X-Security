@@ -1,53 +1,53 @@
- import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 function Register() {
+  const navigate = useNavigate();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const navigate = useNavigate();
+  const API = "https://asian-x-security.onrender.com/api/auth";
 
-  // API URL (Production + Local Support)
-  const API_URL =
-    process.env.REACT_APP_API_URL ||
-    "https://asian-x-security.onrender.com";
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-    setLoading(true);
-
+  /* ================= REGISTER ================= */
+  const registerUser = async () => {
     try {
-      const res = await axios.post(
-        `${API_URL}/api/auth/register`,
-        {
-          name,
-          email,
-          password
-        }
-      );
+      setLoading(true);
+      setMsg("");
 
-      if (res.status === 201) {
-        setSuccess("Account created successfully!");
-
-        setTimeout(() => {
-          navigate("/");
-        }, 1500);
+      // ✅ validation
+      if (!name || !email || !password || !confirmPassword) {
+        setMsg("All fields are required");
+        return;
       }
 
-    } catch (err) {
-      console.error("Register Error:", err);
+      if (password !== confirmPassword) {
+        setMsg("Passwords do not match");
+        return;
+      }
 
-      setError(
-        err.response?.data?.message ||
-        "Registration failed. Please try again."
-      );
+      // ✅ API call
+      await axios.post(`${API}/register`, {
+        name,
+        email,
+        password,
+      });
+
+      setMsg("🎉 Account created successfully!");
+
+      // 👉 redirect to login
+      setTimeout(() => {
+        navigate("/");
+      }, 1500);
+
+    } catch (err) {
+      setMsg(err.response?.data?.message || "Error registering");
     } finally {
       setLoading(false);
     }
@@ -55,79 +55,60 @@ function Register() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="bg-white p-6 rounded shadow w-80">
 
-      <div className="w-full max-w-md bg-white p-8 shadow-xl rounded-xl">
-
-        <h2 className="text-2xl font-bold mb-6 text-center">
-          Create Account
+        <h2 className="text-xl font-bold mb-4 text-center">
+          Register
         </h2>
 
-        {error && (
-          <p className="text-red-500 mb-4 text-center">
-            {error}
-          </p>
-        )}
+        {msg && <p className="text-sm text-center mb-3">{msg}</p>}
 
-        {success && (
-          <p className="text-green-500 mb-4 text-center">
-            {success}
-          </p>
-        )}
+        {/* NAME */}
+        <input
+          type="text"
+          placeholder="Name"
+          className="w-full mb-3 p-2 border"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* EMAIL */}
+        <input
+          type="email"
+          placeholder="Email"
+          className="w-full mb-3 p-2 border"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
 
-          {/* NAME */}
-          <input
-            type="text"
-            placeholder="Full Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full border p-3 rounded"
-            required
-          />
+        {/* PASSWORD */}
+        <input
+          type="password"
+          placeholder="Password"
+          className="w-full mb-3 p-2 border"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
 
-          {/* EMAIL */}
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full border p-3 rounded"
-            required
-          />
+        {/* CONFIRM PASSWORD */}
+        <input
+          type="password"
+          placeholder="Confirm Password"
+          className="w-full mb-3 p-2 border"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+        />
 
-          {/* PASSWORD */}
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full border p-3 rounded"
-            required
-          />
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700 transition"
-          >
-            {loading ? "Creating..." : "Create Account"}
-          </button>
-
-        </form>
-
-        <p className="mt-4 text-center text-sm">
-          Already have an account?{" "}
-          <Link
-            to="/"
-            className="text-blue-600 font-medium"
-          >
-            Login
-          </Link>
-        </p>
+        {/* BUTTON */}
+        <button
+          onClick={registerUser}
+          disabled={loading}
+          className="w-full bg-blue-600 text-white p-2"
+        >
+          {loading ? "Registering..." : "Register"}
+        </button>
 
       </div>
-
     </div>
   );
 }

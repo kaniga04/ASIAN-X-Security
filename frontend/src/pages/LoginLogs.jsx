@@ -6,8 +6,6 @@ import Topbar from "../components/Topbar";
 function LoginLogs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // ✅ popup state
   const [selectedLog, setSelectedLog] = useState(null);
 
   useEffect(() => {
@@ -29,7 +27,6 @@ function LoginLogs() {
 
   const formatDate = (date) => {
     if (!date) return "N/A";
-
     return new Date(date).toLocaleString();
   };
 
@@ -53,7 +50,7 @@ function LoginLogs() {
             Login Activity Logs
           </h2>
 
-          {/* ================= TABLE ================= */}
+          {/* TABLE */}
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
@@ -102,7 +99,6 @@ function LoginLogs() {
                         {formatDate(log.createdAt)}
                       </td>
 
-                      {/* ✅ BUTTON */}
                       <td className="px-6 py-4">
                         <button
                           onClick={() => setSelectedLog(log)}
@@ -122,13 +118,13 @@ function LoginLogs() {
         </main>
       </div>
 
-      {/* ================= POPUP MODAL ================= */}
+      {/* ================= POPUP ================= */}
       {selectedLog && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
 
           <div className="bg-white w-full max-w-lg rounded-xl shadow-lg p-6 relative">
 
-            {/* Close */}
+            {/* CLOSE */}
             <button
               onClick={() => setSelectedLog(null)}
               className="absolute top-3 right-3 text-gray-500 text-lg"
@@ -144,7 +140,7 @@ function LoginLogs() {
             <div className="space-y-2 text-sm">
               <p><b>Email:</b> {selectedLog.email}</p>
               <p><b>IP:</b> {selectedLog.ipAddress}</p>
-              <p><b>Location:</b> {selectedLog.country}</p>
+              <p><b>Location:</b> {selectedLog.state || "Unknown"}, {selectedLog.country}</p>
               <p><b>Device:</b> {selectedLog.device}</p>
               <p><b>Browser:</b> {selectedLog.browser}</p>
               <p><b>OS:</b> {selectedLog.os}</p>
@@ -153,37 +149,48 @@ function LoginLogs() {
               <p><b>Risk Score:</b> {selectedLog.riskScore}</p>
             </div>
 
-            {/* EXPLANATION */}
+            {/* ANALYSIS */}
             <div className="mt-4">
               <h3 className="font-semibold text-red-600 mb-2">
                 Analysis
               </h3>
 
-              {selectedLog.threatExplanation ? (
-                <>
-                  <p className="font-bold mb-2">
-                    Risk Level: {selectedLog.threatExplanation.riskLevel}
-                  </p>
+              <p className={`font-bold mb-2 ${
+                selectedLog.threatExplanation?.riskLevel === "High"
+                  ? "text-red-600"
+                  : selectedLog.threatExplanation?.riskLevel === "Medium"
+                  ? "text-yellow-600"
+                  : "text-green-600"
+              }`}>
+                Risk Level: {selectedLog.threatExplanation?.riskLevel || "Normal"}
+              </p>
 
-                  <ul className="list-disc ml-5 text-sm">
-                    {selectedLog.threatExplanation.reasons.map((r, i) => (
-                      <li key={i}>{r}</li>
-                    ))}
-                  </ul>
+              {/* REASONS */}
+              <ul className="list-disc ml-5 text-sm">
+                {selectedLog.threatExplanation?.reasons?.length > 0 ? (
+                  selectedLog.threatExplanation.reasons.map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))
+                ) : (
+                  <li>No risk factors detected</li>
+                )}
+              </ul>
 
-                  <h4 className="mt-3 font-semibold">
-                    Recommendations:
-                  </h4>
+              {/* RECOMMENDATIONS */}
+              <h4 className="mt-3 font-semibold">
+                Recommendations:
+              </h4>
 
-                  <ul className="list-disc ml-5 text-sm">
-                    {selectedLog.threatExplanation.recommendations.map((r, i) => (
-                      <li key={i}>{r}</li>
-                    ))}
-                  </ul>
-                </>
-              ) : (
-                <p className="text-gray-500">No analysis available</p>
-              )}
+              <ul className="list-disc ml-5 text-sm">
+                {selectedLog.threatExplanation?.recommendations?.length > 0 ? (
+                  selectedLog.threatExplanation.recommendations.map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))
+                ) : (
+                  <li>No action needed</li>
+                )}
+              </ul>
+
             </div>
 
           </div>

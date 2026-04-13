@@ -13,14 +13,8 @@ import Users from "./pages/Users";
 import LoginLogs from "./pages/LoginLogs";
 import Anomalies from "./pages/Anomalies";
 import FraudDashboard from "./pages/FraudDashboard";
-
-// NEW FRAUD ANALYTICS PAGE
 import FraudDetection from "./pages/FraudDetection";
-
-// CSV ANALYZER
 import CSVAnalyzer from "./pages/CSVAnalyzer";
-
-// USER INVESTIGATION
 import UserInvestigation from "./pages/UserInvestigation";
 
 // ACCOUNT PAGES
@@ -31,6 +25,8 @@ import HelpCenter from "./pages/HelpCenter";
 // ROUTE PROTECTION
 import ProtectedRoute from "./components/ProtectedRoute";
 
+import OAuthSuccess from "./pages/OAuthSuccess";
+
 function App() {
   return (
     <Router>
@@ -39,6 +35,9 @@ function App() {
         {/* ================= AUTH ROUTES ================= */}
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
+
+        {/* ✅ Google OAuth redirect handler (REQUIRED) */}
+        <Route path="/oauth-success" element={<OAuthSuccess />} />
 
         {/* ================= ADMIN ROUTES ================= */}
 
@@ -78,7 +77,6 @@ function App() {
           }
         />
 
-        {/* FRAUD MONITORING DASHBOARD */}
         <Route
           path="/admin/fraud"
           element={
@@ -88,7 +86,6 @@ function App() {
           }
         />
 
-        {/* ADVANCED FRAUD ANALYTICS */}
         <Route
           path="/admin/fraud-analytics"
           element={
@@ -98,7 +95,6 @@ function App() {
           }
         />
 
-        {/* CSV ANALYZER */}
         <Route
           path="/admin/csv-analyzer"
           element={
@@ -108,7 +104,6 @@ function App() {
           }
         />
 
-        {/* USER INVESTIGATION */}
         <Route
           path="/admin/investigation"
           element={
@@ -117,8 +112,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-        {/* ================= ACCOUNT ================= */}
 
         <Route
           path="/admin/profile"
@@ -157,6 +150,9 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* ✅ FALLBACK ROUTE (IMPORTANT) */}
+        <Route path="*" element={<Login />} />
 
       </Routes>
     </Router>

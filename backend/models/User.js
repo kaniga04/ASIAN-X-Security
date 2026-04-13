@@ -26,9 +26,6 @@ const userSchema = new mongoose.Schema(
       default: "user"
     },
 
-    resetToken: String,
-    resetTokenExpiry: Date,
-
     isBlocked: {
       type: Boolean,
       default: false

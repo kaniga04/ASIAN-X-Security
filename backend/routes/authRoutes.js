@@ -48,7 +48,7 @@ const getDeviceInfo = (req) => {
 };
 
 /* ===================================================== */
-/* ================= REGISTER ============================ */
+/* ================= SIMPLE REGISTER ===================== */
 /* ===================================================== */
 router.post("/register", async (req, res) => {
   try {
@@ -76,7 +76,6 @@ router.post("/register", async (req, res) => {
     await user.save();
 
     res.json({ message: "Registered successfully" });
-
   } catch (err) {
     console.error("REGISTER ERROR:", err);
     res.status(500).json({ message: "Server error" });
@@ -124,30 +123,16 @@ router.post("/login", async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(20);
 
-    /* ================= PREPARE LOGIN DATA ================= */
-    const loginData = {
-      device: deviceInfo.device,
-      location: state,
-      timestamp: new Date(),
-      hour: new Date().getHours(),
-      failedAttempts: 0,
-    };
-
-    /* ================= USER PROFILE MOCK ================= */
-    const userProfile = {
-      usualDevices: recentLogs.map(log => log.device),
-      usualLocations: recentLogs.map(log => log.state),
-      usualHours: recentLogs.map(log => new Date(log.createdAt).getHours()),
-      loginHistory: recentLogs,
-    };
-
     /* ================= CALCULATE RISK ================= */
-    const risk = calculateRiskScore(
-      loginData,
-      userProfile,
+    const risk = await calculateRiskScore({
+      user,
+      loginData: {
+        device: deviceInfo.device,
+        state,
+        failedAttempts: 0,
+      },
       recentLogs,
-      recentLogs
-    );
+    });
 
     console.log("🔥 RISK:", risk);
 
@@ -166,22 +151,8 @@ router.post("/login", async (req, res) => {
       isAnomaly: risk.riskLevel !== "Normal",
 
       threatExplanation: {
-        title: "Login Risk Analysis",
         riskLevel: risk.riskLevel,
         reasons: risk.reasons,
-        recommendations:
-          risk.riskLevel === "High"
-            ? [
-                "Reset password immediately",
-                "Enable MFA",
-                "Block suspicious device",
-              ]
-            : risk.riskLevel === "Medium"
-            ? [
-                "Verify login activity",
-                "Check device usage",
-              ]
-            : ["No major threat detected"],
       },
     });
 
@@ -261,7 +232,6 @@ router.post("/simulate-attack", async (req, res) => {
     await LoginLog.insertMany(fakeLogs);
 
     res.json({ message: "Attack simulated" });
-
   } catch (err) {
     console.error("SIM ERROR:", err);
     res.status(500).json({ message: "Simulation failed" });

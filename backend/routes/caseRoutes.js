@@ -3,6 +3,11 @@ const router = express.Router();
 
 const LoginLog = require("../models/LoginLog");
 
+/* ✅ TEST ROUTE */
+router.get("/test", (req, res) => {
+  res.send("Case routes working ✅");
+});
+
 /* ============================= */
 /* RESOLVE ANOMALY */
 /* ============================= */

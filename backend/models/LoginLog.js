@@ -73,6 +73,15 @@ const LoginLogSchema = new mongoose.Schema({
       type: [String],
       default: []
     }
+
+    isVerifiedByUser: {
+  type: Boolean,
+  default: null // null = not reviewed
+},
+isReported: {
+  type: Boolean,
+  default: false
+}
   }
 
 }, { timestamps: true });

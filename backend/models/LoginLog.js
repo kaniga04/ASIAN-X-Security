@@ -56,6 +56,7 @@ const LoginLogSchema = new mongoose.Schema({
   mitreTechniqueId: String,
   anomalyReason: String,
 
+  /* ✅ FIXED: ONLY threat explanation inside */
   threatExplanation: {
     title: {
       type: String,
@@ -73,15 +74,17 @@ const LoginLogSchema = new mongoose.Schema({
       type: [String],
       default: []
     }
+  },
 
-    isVerifiedByUser: {
-  type: Boolean,
-  default: null // null = not reviewed
-},
-isReported: {
-  type: Boolean,
-  default: false
-}
+  /* ✅ CORRECT PLACE (OUTSIDE) */
+  isVerifiedByUser: {
+    type: Boolean,
+    default: null // null = not reviewed
+  },
+
+  isReported: {
+    type: Boolean,
+    default: false
   }
 
 }, { timestamps: true });

@@ -92,6 +92,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/fraud", fraudRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 
+const caseRoutes = require("./routes/caseRoutes");
+app.use("/api/cases", caseRoutes);
+
 /* ================= HEALTH CHECK ================= */
 
 app.get("/", (req, res) => {

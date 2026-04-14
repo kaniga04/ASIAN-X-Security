@@ -102,4 +102,22 @@ router.get("/campaigns", async (req, res) => {
   }
 });
 
+// RESOLVE ALL BY IP
+router.put("/resolve-all", async (req, res) => {
+  try {
+
+    const { ipAddress } = req.body;
+
+    await LoginLog.updateMany(
+      { ipAddress },
+      { resolved: true }
+    );
+
+    res.json({ message: "All cases resolved for this IP" });
+
+  } catch (error) {
+    res.status(500).json({ message: "Failed to resolve all" });
+  }
+});
+
 module.exports = router;

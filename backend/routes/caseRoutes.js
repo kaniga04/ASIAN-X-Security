@@ -3,15 +3,32 @@ const router = express.Router();
 
 const LoginLog = require("../models/LoginLog");
 
+/* ============================= */
 /* ✅ TEST ROUTE */
+/* ============================= */
 router.get("/test", (req, res) => {
   res.send("Case routes working ✅");
 });
 
 /* ============================= */
-/* RESOLVE ANOMALY */
+/* ✅ GET ALL RESOLVED CASES */
 /* ============================= */
+router.get("/", async (req, res) => {
+  try {
+    const cases = await LoginLog.find({ resolved: true })
+      .sort({ updatedAt: -1 });
 
+    res.json(cases);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to fetch cases" });
+  }
+});
+
+/* ============================= */
+/* ✅ RESOLVE ANOMALY */
+/* ============================= */
 router.put("/resolve/:id", async (req, res) => {
   try {
 
@@ -21,12 +38,16 @@ router.put("/resolve/:id", async (req, res) => {
       req.params.id,
       {
         resolved: true,
-        actionTaken,
-        threatType,
-        notes
+        actionTaken: actionTaken || "Marked as resolved",
+        threatType: threatType || "Anomaly",
+        notes: notes || "Resolved from dashboard"
       },
       { new: true }
     );
+
+    if (!updated) {
+      return res.status(404).json({ message: "Case not found" });
+    }
 
     res.json(updated);
 
@@ -37,9 +58,8 @@ router.put("/resolve/:id", async (req, res) => {
 });
 
 /* ============================= */
-/* DETECT ATTACK CAMPAIGNS */
+/* ✅ DETECT ATTACK CAMPAIGNS */
 /* ============================= */
-
 router.get("/campaigns", async (req, res) => {
   try {
     const campaigns = await LoginLog.aggregate([
@@ -59,7 +79,7 @@ router.get("/campaigns", async (req, res) => {
       },
       {
         $match: {
-          count: { $gte: 3 } // 🔥 threshold (same IP ≥ 3 attacks)
+          count: { $gte: 3 } // 🔥 threshold
         }
       },
       {

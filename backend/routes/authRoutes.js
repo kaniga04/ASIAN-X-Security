@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const geoip = require("geoip-lite");
@@ -25,6 +26,7 @@ const transporter = nodemailer.createTransport({
 });
 
 /* ================= HELPERS ================= */
+
 const getClientIP = (req) => {
   const forwarded = req.headers["x-forwarded-for"];
   if (forwarded) return forwarded.split(",")[0];
@@ -106,32 +108,42 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    /* GEO + DEVICE */
+    /* ================= GEO + DEVICE ================= */
+
     const ip = getClientIP(req);
     const geo = geoip.lookup(ip);
 
     const country = geo?.country || "Unknown";
     const state = geo?.region || "Unknown";
 
+    // ✅ IMPORTANT: LAT/LON (for fraud detection)
+    const latitude = geo?.ll?.[0] || null;
+    const longitude = geo?.ll?.[1] || null;
+
     const deviceInfo = getDeviceInfo(req);
 
-    /* RECENT LOGS */
+    /* ================= RECENT LOGS ================= */
+
     const recentLogs = await LoginLog.find({ email: user.email })
       .sort({ createdAt: -1 })
       .limit(20);
 
-    /* RISK */
+    /* ================= RISK ================= */
+
     const risk = await calculateRiskScore({
       user,
       loginData: {
         device: deviceInfo.device,
         state,
+        latitude,
+        longitude,
         failedAttempts: 0,
       },
       recentLogs,
     });
 
-    /* SAVE LOG */
+    /* ================= SAVE LOG ================= */
+
     await LoginLog.create({
       userId: user._id,
       email: user.email,
@@ -139,6 +151,8 @@ router.post("/login", async (req, res) => {
       ipAddress: ip,
       country,
       state,
+      latitude,
+      longitude,
       ...deviceInfo,
       status: "success",
 
@@ -154,7 +168,8 @@ router.post("/login", async (req, res) => {
       },
     });
 
-    /* TOKEN */
+    /* ================= TOKEN ================= */
+
     const token = jwt.sign(
       { id: user._id, role: user.role },
       SECRET,
@@ -230,7 +245,6 @@ router.post("/report-attack", async (req, res) => {
       { new: true }
     );
 
-    /* EMAIL ALERT */
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: process.env.EMAIL_USER,
@@ -278,6 +292,8 @@ router.post("/simulate-attack", async (req, res) => {
         ipAddress: `192.168.1.${i}`,
         country: "Unknown",
         state: "Unknown",
+        latitude: null,
+        longitude: null,
         device: "Bot",
         browser: "Script",
         os: "Unknown",
@@ -300,19 +316,19 @@ router.post("/simulate-attack", async (req, res) => {
   }
 });
 
-// ================= UPDATE PROFILE =================
+/* ===================================================== */
+/* ================= UPDATE PROFILE ====================== */
+/* ===================================================== */
 router.put("/update-profile", async (req, res) => {
   try {
     const { name, email, phone, department } = req.body;
 
-    // ⚠️ TEMP: get user by email (since no auth middleware yet)
     const user = await User.findOne({ email });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // update fields
     user.name = name || user.name;
     user.phone = phone || user.phone;
     user.department = department || user.department;

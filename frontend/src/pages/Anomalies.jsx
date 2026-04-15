@@ -6,27 +6,30 @@ import Topbar from "../components/Topbar";
 function Anomalies() {
 
   const [logs, setLogs] = useState([]);
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+
+  const [selectedLog, setSelectedLog] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+
+  const [form, setForm] = useState({
+    actionTaken: "",
+    threatType: "",
+    notes: ""
+  });
 
   useEffect(() => {
     fetchLogs();
-
-    // 🔥 Auto refresh every 10 sec
-    const interval = setInterval(fetchLogs, 10000);
-    return () => clearInterval(interval);
-
   }, []);
 
   const fetchLogs = async () => {
     try {
-
       const res = await axios.get(
         "https://asian-x-security.onrender.com/api/auth/logs"
       );
 
-      const anomalyData = res.data.filter(log => log.isAnomaly);
+      const anomalyData = res.data.filter(
+        log => log.isAnomaly && !log.resolved
+      );
 
       setLogs(anomalyData);
 
@@ -37,84 +40,32 @@ function Anomalies() {
     }
   };
 
-  // ===== Severity =====
-  const getSeverity = (riskScore) => {
-    if (riskScore >= 80) return "critical";
-    if (riskScore >= 50) return "medium";
-    return "low";
+  // ===== OPEN MODAL =====
+  const openResolveModal = (log) => {
+    setSelectedLog(log);
+    setShowModal(true);
   };
 
-  // ===== Resolve =====
-  const resolveAnomaly = async (id) => {
+  // ===== SUBMIT =====
+  const handleResolve = async () => {
     try {
+
       await axios.put(
-        `https://asian-x-security.onrender.com/api/auth/logs/resolve/${id}`
+        `https://asian-x-security.onrender.com/api/cases/resolve/${selectedLog._id}`,
+        form
       );
+
+      setShowModal(false);
       fetchLogs();
+
     } catch (error) {
       console.error(error);
+      alert("Resolve failed");
     }
   };
-
-  // ===== Export CSV =====
-  const exportCSV = () => {
-
-    if (logs.length === 0) {
-      alert("No data to export");
-      return;
-    }
-
-    const rows = logs.map(log => ({
-      Email: log.email,
-      IP: log.ipAddress?.split(",")[0].trim(),
-      Country: log.country || "Unknown",
-      RiskScore: log.riskScore,
-      MLScore: log.mlScore || 0,
-      Status: log.status,
-      Time: new Date(log.createdAt).toLocaleString()
-    }));
-
-    const headers = Object.keys(rows[0]).join(",");
-
-    const csv = [
-      headers,
-      ...rows.map(row => Object.values(row).join(","))
-    ].join("\n");
-
-    const blob = new Blob([csv], {
-      type: "text/csv;charset=utf-8;"
-    });
-
-    const url = window.URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.setAttribute("download", "anomalies.csv");
-
-    document.body.appendChild(link);
-
-    link.click();
-
-    document.body.removeChild(link);
-  };
-
-  const filteredLogs = logs
-    .filter(log =>
-      log.email.toLowerCase().includes(search.toLowerCase())
-    )
-    .filter(log =>
-      filter === "all"
-        ? true
-        : getSeverity(log.riskScore) === filter
-    );
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="animate-spin h-12 w-12 border-4 border-red-600 border-t-transparent rounded-full"></div>
-      </div>
-    );
+    return <div className="p-6">Loading...</div>;
   }
 
   return (
@@ -123,145 +74,124 @@ function Anomalies() {
       <Sidebar />
 
       <div className="flex-1 flex flex-col">
-
         <Topbar />
 
-        <main className="p-6 space-y-6">
+        <main className="p-6">
 
-          {/* Header */}
-          <div>
-            <h2 className="text-2xl font-bold">
-              Anomaly Detection
-            </h2>
-            <p className="text-gray-500 text-sm">
-              AI-detected abnormal login behaviors
-            </p>
-          </div>
+          <h2 className="text-xl font-bold mb-4">
+            Anomaly Detection
+          </h2>
 
-          {/* Controls */}
-          <div className="flex flex-wrap gap-4 justify-between">
+          <table className="w-full bg-white shadow rounded">
 
-            <input
-              type="text"
-              placeholder="Search user email..."
-              className="border px-4 py-2 rounded-lg"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+            <thead className="bg-gray-100 text-sm">
+              <tr>
+                <th className="p-3">User</th>
+                <th className="p-3">IP</th>
+                <th className="p-3">Risk</th>
+                <th className="p-3">Action</th>
+              </tr>
+            </thead>
 
-            <select
-              className="border px-4 py-2 rounded-lg"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            >
-              <option value="all">All</option>
-              <option value="critical">Critical</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
+            <tbody>
+              {logs.map(log => (
+                <tr key={log._id} className="border-t">
 
-            <button
-              onClick={exportCSV}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg"
-            >
-              Export CSV
-            </button>
+                  <td className="p-3">{log.email}</td>
+                  <td className="p-3">{log.ipAddress}</td>
+                  <td className="p-3">{log.riskScore}</td>
 
-          </div>
-
-          {/* Table */}
-          <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-
-            <table className="w-full text-sm">
-
-              <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
-                <tr>
-                  <th className="px-6 py-3 text-left">User</th>
-                  <th className="px-6 py-3 text-left">IP Address</th>
-                  <th className="px-6 py-3 text-left">Country</th>
-                  <th className="px-6 py-3 text-left">Risk Score</th>
-                  <th className="px-6 py-3 text-left">ML Score</th>
-                  <th className="px-6 py-3 text-left">MITRE Tactic</th>
-                  <th className="px-6 py-3 text-left">MITRE Technique</th>
-                  <th className="px-6 py-3 text-left">Time</th>
-                  <th className="px-6 py-3 text-left">Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredLogs.map((log) => {
-
-                  const severity = getSeverity(log.riskScore);
-                  const realIP = log.ipAddress?.split(",")[0].trim();
-
-                  return (
-                    <tr
-                      key={log._id}
-                      className="border-t hover:bg-gray-50"
+                  <td className="p-3">
+                    <button
+                      onClick={() => openResolveModal(log)}
+                      className="bg-red-600 text-white px-3 py-1 rounded"
                     >
+                      Resolve
+                    </button>
+                  </td>
 
-                      <td className="px-6 py-4 font-medium">
-                        {log.email}
-                      </td>
+                </tr>
+              ))}
+            </tbody>
 
-                      <td className="px-6 py-4">
-                        {realIP}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {log.country || "Unknown"}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium
-                          ${
-                            severity === "critical"
-                              ? "bg-red-100 text-red-700"
-                              : severity === "medium"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-green-100 text-green-700"
-                          }`}>
-                          {log.riskScore}
-                        </span>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {log.mlScore || "0.85"}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {log.mitreTactic || "Initial Access"}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {log.mitreTechnique || "T1078 - Valid Accounts"}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {new Date(log.createdAt).toLocaleString()}
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => resolveAnomaly(log._id)}
-                          className="bg-red-600 text-white px-3 py-1 rounded text-xs"
-                        >
-                          Resolve
-                        </button>
-                      </td>
-
-                    </tr>
-                  );
-                })}
-              </tbody>
-
-            </table>
-
-          </div>
+          </table>
 
         </main>
-
       </div>
+
+      {/* ================= MODAL ================= */}
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
+
+          <div className="bg-white p-6 rounded-lg w-[500px]">
+
+            <h3 className="text-lg font-bold mb-4">
+              Resolve Anomaly
+            </h3>
+
+            <p className="text-sm mb-2">
+              User: {selectedLog.email}
+            </p>
+
+            {/* ACTION */}
+            <select
+              className="w-full border p-2 mb-3"
+              onChange={(e) =>
+                setForm({ ...form, actionTaken: e.target.value })
+              }
+            >
+              <option>Select Action</option>
+              <option>False Positive</option>
+              <option>Block IP</option>
+              <option>Password Reset</option>
+              <option>Account Lock</option>
+            </select>
+
+            {/* THREAT TYPE */}
+            <select
+              className="w-full border p-2 mb-3"
+              onChange={(e) =>
+                setForm({ ...form, threatType: e.target.value })
+              }
+            >
+              <option>Select Threat Type</option>
+              <option>Brute Force</option>
+              <option>Credential Stuffing</option>
+              <option>Suspicious Location</option>
+            </select>
+
+            {/* NOTES */}
+            <textarea
+              placeholder="Investigation notes..."
+              className="w-full border p-2 mb-3"
+              onChange={(e) =>
+                setForm({ ...form, notes: e.target.value })
+              }
+            />
+
+            <div className="flex justify-end gap-3">
+
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 border rounded"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleResolve}
+                className="bg-red-600 text-white px-4 py-2 rounded"
+              >
+                Apply & Resolve
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
 
     </div>
   );

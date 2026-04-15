@@ -35,15 +35,22 @@ function Sidebar({ onLogout }) {
             Main
           </p>
 
-          {/* Reusable class */}
           {[
-            { to: "/admin", icon: <LayoutDashboard size={18} />, label: "Dashboard", color: "blue" },
-            { to: "/admin/users", icon: <Users size={18} />, label: "User Management", color: "blue" },
-            { to: "/admin/logs", icon: <Activity size={18} />, label: "Login Logs", color: "blue" },
-            { to: "/admin/anomalies", icon: <AlertTriangle size={18} />, label: "Anomalies", color: "red" },
-            { to: "/admin/fraud-analytics", icon: <ShieldCheck size={18} />, label: "Fraud Analytics", color: "purple" },
-            { to: "/admin/csv-analyzer", icon: <FileSpreadsheet size={18} />, label: "CSV Analyzer", color: "green" },
-            { to: "/admin/investigation", icon: <ShieldCheck size={18} />, label: "User Investigation", color: "indigo" }
+            { to: "/admin", icon: <LayoutDashboard size={18} />, label: "Dashboard" },
+            { to: "/admin/users", icon: <Users size={18} />, label: "User Management" },
+            { to: "/admin/logs", icon: <Activity size={18} />, label: "Login Logs" },
+            { to: "/admin/anomalies", icon: <AlertTriangle size={18} />, label: "Anomalies" },
+
+            // ✅ NEW: CASE MANAGEMENT
+            { to: "/admin/cases", icon: <ShieldCheck size={18} />, label: "Case Management" },
+
+            // ✅ NEW: CAMPAIGNS
+            { to: "/admin/campaigns", icon: <ShieldCheck size={18} />, label: "Campaigns" },
+
+            { to: "/admin/fraud-analytics", icon: <ShieldCheck size={18} />, label: "Fraud Analytics" },
+            { to: "/admin/csv-analyzer", icon: <FileSpreadsheet size={18} />, label: "CSV Analyzer" },
+            { to: "/admin/investigation", icon: <ShieldCheck size={18} />, label: "User Investigation" }
+
           ].map((item, index) => (
             <NavLink
               key={index}
@@ -52,12 +59,12 @@ function Sidebar({ onLogout }) {
                 `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
                 ${
                   isActive
-                    ? `bg-${item.color}-600 text-white shadow-md`
-                    : "hover:bg-slate-800 hover:text-white"
+                    ? "bg-white/10 text-white shadow-inner"
+                    : "hover:bg-white/5 hover:text-white"
                 }`
               }
             >
-              <span className="opacity-80 group-hover:opacity-100">
+              <span className="opacity-80 group-hover:opacity-100 transition">
                 {item.icon}
               </span>
               <span className="text-sm font-medium tracking-wide">
@@ -75,7 +82,10 @@ function Sidebar({ onLogout }) {
 
           <NavLink
             to="/admin/profile"
-            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-xl transition
+              ${isActive ? "bg-white/10 text-white" : "hover:bg-white/5 hover:text-white"}`
+            }
           >
             <User size={18} />
             <span className="text-sm font-medium">Profile</span>
@@ -83,7 +93,10 @@ function Sidebar({ onLogout }) {
 
           <NavLink
             to="/admin/settings"
-            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-xl transition
+              ${isActive ? "bg-white/10 text-white" : "hover:bg-white/5 hover:text-white"}`
+            }
           >
             <Settings size={18} />
             <span className="text-sm font-medium">Settings</span>
@@ -98,7 +111,10 @@ function Sidebar({ onLogout }) {
 
           <NavLink
             to="/admin/help"
-            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-xl transition
+              ${isActive ? "bg-white/10 text-white" : "hover:bg-white/5 hover:text-white"}`
+            }
           >
             <HelpCircle size={18} />
             <span className="text-sm font-medium">Help Center</span>

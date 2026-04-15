@@ -218,7 +218,7 @@ const Login = () => {
               to="/register"
               className="text-indigo-600 font-medium hover:underline"
             >
-              Register
+              Create an account
             </Link>
           </p>
 

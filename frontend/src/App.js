@@ -1,45 +1,47 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
-// AUTH PAGES
+// ================= AUTH PAGES =================
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ResetPassword from "./pages/ResetPassword";
+import OAuthSuccess from "./pages/OAuthSuccess";
 
-// DASHBOARDS
+// ================= DASHBOARDS =================
 import AdminDashboard from "./pages/AdminDashboard";
 import UserDashboard from "./pages/UserDashboard";
+import UserProfile from "./pages/UserProfile";
 
-// ADMIN PAGES
+// ================= ADMIN PAGES =================
 import Users from "./pages/Users";
 import LoginLogs from "./pages/LoginLogs";
 import Anomalies from "./pages/Anomalies";
+import Cases from "./pages/Cases";
+import Campaigns from "./pages/Campaigns"; // ✅ FIXED (moved here)
 import FraudDashboard from "./pages/FraudDashboard";
 import FraudDetection from "./pages/FraudDetection";
 import CSVAnalyzer from "./pages/CSVAnalyzer";
 import UserInvestigation from "./pages/UserInvestigation";
 
-// ACCOUNT PAGES
+// ================= ACCOUNT PAGES =================
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import HelpCenter from "./pages/HelpCenter";
 
-// ROUTE PROTECTION
+// ================= ROUTE PROTECTION =================
 import ProtectedRoute from "./components/ProtectedRoute";
-
-import OAuthSuccess from "./pages/OAuthSuccess";
 
 function App() {
   return (
     <Router>
       <Routes>
 
-        {/* ================= AUTH ROUTES ================= */}
+        {/* ================= AUTH ================= */}
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
-
-        {/* ✅ Google OAuth redirect handler (REQUIRED) */}
         <Route path="/oauth-success" element={<OAuthSuccess />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-        {/* ================= ADMIN ROUTES ================= */}
+        {/* ================= ADMIN ================= */}
 
         <Route
           path="/admin"
@@ -73,6 +75,26 @@ function App() {
           element={
             <ProtectedRoute role="admin">
               <Anomalies />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ✅ CASE MANAGEMENT FIXED */}
+        <Route
+          path="/admin/cases"
+          element={
+            <ProtectedRoute role="admin">
+              <Cases />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ✅ CAMPAIGNS ADDED */}
+        <Route
+          path="/admin/campaigns"
+          element={
+            <ProtectedRoute role="admin">
+              <Campaigns />
             </ProtectedRoute>
           }
         />
@@ -140,7 +162,7 @@ function App() {
           }
         />
 
-        {/* ================= USER ROUTES ================= */}
+        {/* ================= USER ================= */}
 
         <Route
           path="/user"
@@ -151,7 +173,25 @@ function App() {
           }
         />
 
-        {/* ✅ FALLBACK ROUTE (IMPORTANT) */}
+        <Route
+          path="/user/activity"
+          element={
+            <ProtectedRoute role="user">
+              <UserDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/user/profile"
+          element={
+            <ProtectedRoute role="user">
+              <UserProfile />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* ================= FALLBACK ================= */}
         <Route path="*" element={<Login />} />
 
       </Routes>

@@ -1,3 +1,6 @@
+// ✅ IMPORT real distance function
+const getDistance = require("./distance");
+
 const calculateRiskScore = async ({
   user,
   loginData,
@@ -23,22 +26,36 @@ const calculateRiskScore = async ({
     const points = Math.min(25, extra * 10);
     riskPoints += points + 15;
 
-    reasons.push(`Multiple users on same device at midnight`);
+    reasons.push("Multiple users on same device at midnight");
   }
 
-  /* ================= RULE 2 ================= */
-  // Impossible travel
-  const lastLogin = recentLogs[0]; // latest log
+  /* ================= RULE 2 (FIXED 🔥) ================= */
+  // Impossible travel using LAT/LON
 
-  if (lastLogin && lastLogin.device === loginData.device) {
+  const lastLogin = recentLogs[0];
+
+  if (
+    lastLogin &&
+    lastLogin.device === loginData.device &&
+    lastLogin.latitude &&
+    lastLogin.longitude &&
+    loginData.latitude &&
+    loginData.longitude
+  ) {
     const timeDiff =
       (Date.now() - new Date(lastLogin.createdAt)) / (1000 * 60 * 60);
 
-    const distance = getDistance(lastLogin.state, loginData.state);
+    const distance = getDistance(
+      lastLogin.latitude,
+      lastLogin.longitude,
+      loginData.latitude,
+      loginData.longitude
+    );
 
     const speed = distance / (timeDiff || 1);
 
-    if (timeDiff < 1 && speed > 800) {
+    // 🚨 INDUSTRY LOGIC
+    if (speed > 800) {
       riskPoints += 40;
       reasons.push("Impossible travel detected");
     }
@@ -77,10 +94,7 @@ const calculateRiskScore = async ({
   }
 
   /* ================= RULE 5 ================= */
-  if (
-    riskPoints === 0 &&
-    loginData.failedAttempts <= 2
-  ) {
+  if (riskPoints === 0 && loginData.failedAttempts <= 2) {
     return {
       riskScore: 0,
       riskLevel: "Normal",
@@ -99,18 +113,6 @@ const calculateRiskScore = async ({
     riskLevel,
     reasons,
   };
-};
-
-/* ================= HELPER ================= */
-const getDistance = (state1, state2) => {
-  if (state1 === state2) return 50;
-
-  const map = {
-    TN_DL: 2200,
-    KA_TN: 350,
-  };
-
-  return map[`${state1}_${state2}`] || 1000;
 };
 
 module.exports = calculateRiskScore;

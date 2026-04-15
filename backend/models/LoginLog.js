@@ -56,6 +56,15 @@ const LoginLogSchema = new mongoose.Schema({
   mitreTechniqueId: String,
   anomalyReason: String,
 
+  latitude: {
+  type: Number,
+  default: null
+},
+longitude: {
+  type: Number,
+  default: null
+},
+
   /* ✅ FIXED: ONLY threat explanation inside */
   threatExplanation: {
     title: {

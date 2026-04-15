@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import UserSidebar from "../components/UserSidebar";
 import Topbar from "../components/Topbar";
@@ -11,8 +11,8 @@ function UserDashboard() {
     JSON.parse(localStorage.getItem("user")) ||
     JSON.parse(sessionStorage.getItem("user"));
 
-  /* ✅ FETCH LOGS */
-  const fetchLogs = async () => {
+  /* ✅ FIXED: useCallback */
+  const fetchLogs = useCallback(async () => {
     try {
       const res = await axios.get(
         "https://asian-x-security.onrender.com/api/auth/logs"
@@ -28,17 +28,18 @@ function UserDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
+  /* ✅ FIXED: dependency added */
   useEffect(() => {
     fetchLogs();
-  }, []); // ✅ warning ignored safely
+  }, [fetchLogs]);
 
   const formatDate = (date) => {
     return new Date(date).toLocaleString();
   };
 
-  /* ✅ ACTION: THIS WAS ME */
+  /* ✅ ACTION: SAFE */
   const handleThisWasMe = async (logId) => {
     try {
       await axios.post(
@@ -48,13 +49,12 @@ function UserDashboard() {
 
       alert("Marked as safe ✅");
       fetchLogs();
-
     } catch (err) {
       console.error(err);
     }
   };
 
-  /* ✅ ACTION: NOT ME */
+  /* ✅ ACTION: REPORT */
   const handleNotMe = async (logId) => {
     try {
       await axios.post(
@@ -64,7 +64,6 @@ function UserDashboard() {
 
       alert("Reported to admin 🚨");
       fetchLogs();
-
     } catch (err) {
       console.error(err);
     }
@@ -81,16 +80,14 @@ function UserDashboard() {
   return (
     <div className="flex min-h-screen bg-gray-100">
 
-      {/* SIDEBAR */}
       <UserSidebar />
 
       <div className="flex-1 flex flex-col">
-
         <Topbar />
 
         <main className="p-6 space-y-6">
 
-          {/* WELCOME */}
+          {/* HEADER */}
           <div className="bg-white p-6 rounded-xl shadow-sm border">
             <h2 className="text-xl font-semibold text-gray-800">
               Welcome, {user?.name} 👋
@@ -102,7 +99,6 @@ function UserDashboard() {
 
           {/* STATS */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
             <Card title="Total Logins" value={logs.length} color="blue" />
 
             <Card
@@ -122,17 +118,15 @@ function UserDashboard() {
                   : "green"
               }
             />
-
           </div>
 
-          {/* LOGIN TABLE */}
+          {/* TABLE */}
           <div className="bg-white rounded-xl shadow-sm p-6 border">
 
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">
                 Recent Login Activity
               </h3>
-
               <span className="text-xs text-gray-400">
                 Last 5 records
               </span>
@@ -186,7 +180,6 @@ function UserDashboard() {
                         </span>
                       </td>
 
-                      {/* ✅ ACTION BUTTONS */}
                       <td className="p-3">
                         <div className="flex gap-2">
 
@@ -213,7 +206,6 @@ function UserDashboard() {
 
               </table>
             )}
-
           </div>
 
         </main>
@@ -241,9 +233,7 @@ function Card({ title, value, color }) {
         </h4>
       </div>
 
-      <div
-        className={`w-10 h-10 flex items-center justify-center rounded-lg ${styles[color]}`}
-      >
+      <div className={`w-10 h-10 flex items-center justify-center rounded-lg ${styles[color]}`}>
         <span className="text-sm font-bold">{value}</span>
       </div>
 

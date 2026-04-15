@@ -78,6 +78,7 @@ router.post("/register", async (req, res) => {
     await user.save();
 
     res.json({ message: "Registered successfully" });
+
   } catch (err) {
     console.error("REGISTER ERROR:", err);
     res.status(500).json({ message: "Server error" });
@@ -108,28 +109,24 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    /* ================= GEO + DEVICE ================= */
-
+    /* GEO + DEVICE */
     const ip = getClientIP(req);
     const geo = geoip.lookup(ip);
 
     const country = geo?.country || "Unknown";
     const state = geo?.region || "Unknown";
 
-    // ✅ IMPORTANT: LAT/LON (for fraud detection)
     const latitude = geo?.ll?.[0] || null;
     const longitude = geo?.ll?.[1] || null;
 
     const deviceInfo = getDeviceInfo(req);
 
-    /* ================= RECENT LOGS ================= */
-
+    /* RECENT LOGS */
     const recentLogs = await LoginLog.find({ email: user.email })
       .sort({ createdAt: -1 })
       .limit(20);
 
-    /* ================= RISK ================= */
-
+    /* RISK */
     const risk = await calculateRiskScore({
       user,
       loginData: {
@@ -142,8 +139,7 @@ router.post("/login", async (req, res) => {
       recentLogs,
     });
 
-    /* ================= SAVE LOG ================= */
-
+    /* SAVE LOG */
     await LoginLog.create({
       userId: user._id,
       email: user.email,
@@ -168,8 +164,7 @@ router.post("/login", async (req, res) => {
       },
     });
 
-    /* ================= TOKEN ================= */
-
+    /* TOKEN */
     const token = jwt.sign(
       { id: user._id, role: user.role },
       SECRET,
@@ -194,6 +189,61 @@ router.post("/login", async (req, res) => {
 });
 
 /* ===================================================== */
+/* ================= GET USERS =========================== */
+/* ===================================================== */
+router.get("/users", async (req, res) => {
+  try {
+    const users = await User.find().select("-password");
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching users" });
+  }
+});
+
+/* ===================================================== */
+/* ================= DELETE USER ========================= */
+/* ===================================================== */
+router.delete("/users/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findByIdAndDelete(id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({ message: "User deleted successfully" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Delete failed" });
+  }
+});
+
+/* ===================================================== */
+/* ================= BLOCK USER ========================== */
+/* ===================================================== */
+router.put("/users/block/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isBlocked } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+      id,
+      { isBlocked },
+      { new: true }
+    );
+
+    res.json({ message: "User updated", user });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Update failed" });
+  }
+});
+
+/* ===================================================== */
 /* ================= GET LOGS ============================ */
 /* ===================================================== */
 router.get("/logs", async (req, res) => {
@@ -201,7 +251,6 @@ router.get("/logs", async (req, res) => {
     const logs = await LoginLog.find().sort({ createdAt: -1 });
     res.json(logs);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Error fetching logs" });
   }
 });
@@ -215,16 +264,13 @@ router.post("/mark-safe", async (req, res) => {
 
     const log = await LoginLog.findByIdAndUpdate(
       logId,
-      {
-        isVerifiedByUser: true,
-        isReported: false,
-      },
+      { isVerifiedByUser: true, isReported: false },
       { new: true }
     );
 
     res.json({ message: "Marked as safe", log });
+
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Error marking safe" });
   }
 });
@@ -238,10 +284,7 @@ router.post("/report-attack", async (req, res) => {
 
     const log = await LoginLog.findByIdAndUpdate(
       logId,
-      {
-        isReported: true,
-        isVerifiedByUser: false,
-      },
+      { isReported: true, isVerifiedByUser: false },
       { new: true }
     );
 
@@ -261,20 +304,7 @@ router.post("/report-attack", async (req, res) => {
     res.json({ message: "Reported successfully", log });
 
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Error reporting attack" });
-  }
-});
-
-/* ===================================================== */
-/* ================= USERS =============================== */
-/* ===================================================== */
-router.get("/users", async (req, res) => {
-  try {
-    const users = await User.find().select("-password");
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ message: "Error fetching users" });
   }
 });
 
@@ -300,7 +330,6 @@ router.post("/simulate-attack", async (req, res) => {
         status: "failed",
         riskScore: 80,
         isAnomaly: true,
-        isSimulated: true,
         isVerifiedByUser: false,
         isReported: false,
       });
@@ -311,7 +340,6 @@ router.post("/simulate-attack", async (req, res) => {
     res.json({ message: "Attack simulated" });
 
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Simulation failed" });
   }
 });
@@ -341,7 +369,6 @@ router.put("/update-profile", async (req, res) => {
     });
 
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Update failed" });
   }
 });

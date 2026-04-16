@@ -49,9 +49,7 @@ const getDeviceInfo = (req) => {
   };
 };
 
-/* ===================================================== */
-/* ================= REGISTER ============================ */
-/* ===================================================== */
+/* ================= REGISTER ================= */
 router.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -80,17 +78,15 @@ router.post("/register", async (req, res) => {
     res.json({ message: "Registered successfully" });
 
   } catch (err) {
-    console.error("REGISTER ERROR:", err);
+    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-/* ===================================================== */
-/* ================= LOGIN =============================== */
-/* ===================================================== */
+/* ================= LOGIN ================= */
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, deviceId } = req.body; // ✅ NEW
 
     if (!email || !password) {
       return res.status(400).json({ message: "Email & password required" });
@@ -104,6 +100,11 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Verify your email first" });
     }
 
+    // 🔥 BLOCK CHECK
+    if (user.isBlocked) {
+      return res.status(403).json({ message: "User is blocked by admin" });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid credentials" });
@@ -115,7 +116,6 @@ router.post("/login", async (req, res) => {
 
     const country = geo?.country || "Unknown";
     const state = geo?.region || "Unknown";
-
     const latitude = geo?.ll?.[0] || null;
     const longitude = geo?.ll?.[1] || null;
 
@@ -126,11 +126,12 @@ router.post("/login", async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(20);
 
-    /* RISK */
+    /* RISK ENGINE */
     const risk = await calculateRiskScore({
       user,
       loginData: {
         device: deviceInfo.device,
+        deviceId, // ✅ IMPORTANT
         state,
         latitude,
         longitude,
@@ -144,12 +145,17 @@ router.post("/login", async (req, res) => {
       userId: user._id,
       email: user.email,
       role: user.role,
+
       ipAddress: ip,
       country,
       state,
       latitude,
       longitude,
+
       ...deviceInfo,
+
+      deviceId, // ✅ STORE THIS
+
       status: "success",
 
       riskScore: risk.riskScore,
@@ -183,194 +189,66 @@ router.post("/login", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("LOGIN ERROR:", err);
+    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-/* ===================================================== */
-/* ================= GET USERS =========================== */
-/* ===================================================== */
+/* ================= USERS ================= */
 router.get("/users", async (req, res) => {
-  try {
-    const users = await User.find().select("-password");
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ message: "Error fetching users" });
-  }
+  const users = await User.find().select("-password");
+  res.json(users);
 });
 
-/* ===================================================== */
-/* ================= DELETE USER ========================= */
-/* ===================================================== */
 router.delete("/users/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const user = await User.findByIdAndDelete(id);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.json({ message: "User deleted successfully" });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Delete failed" });
-  }
+  await User.findByIdAndDelete(req.params.id);
+  res.json({ message: "User deleted" });
 });
 
-/* ===================================================== */
-/* ================= BLOCK USER ========================== */
-/* ===================================================== */
 router.put("/users/block/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { isBlocked } = req.body;
-
-    const user = await User.findByIdAndUpdate(
-      id,
-      { isBlocked },
-      { new: true }
-    );
-
-    res.json({ message: "User updated", user });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Update failed" });
-  }
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { isBlocked: req.body.isBlocked },
+    { new: true }
+  );
+  res.json(user);
 });
 
-/* ===================================================== */
-/* ================= GET LOGS ============================ */
-/* ===================================================== */
+/* ================= LOGS ================= */
 router.get("/logs", async (req, res) => {
-  try {
-    const logs = await LoginLog.find().sort({ createdAt: -1 });
-    res.json(logs);
-  } catch (err) {
-    res.status(500).json({ message: "Error fetching logs" });
-  }
+  const logs = await LoginLog.find().sort({ createdAt: -1 });
+  res.json(logs);
 });
 
-/* ===================================================== */
-/* ================= MARK SAFE =========================== */
-/* ===================================================== */
+/* ================= ACTIONS ================= */
 router.post("/mark-safe", async (req, res) => {
-  try {
-    const { logId } = req.body;
-
-    const log = await LoginLog.findByIdAndUpdate(
-      logId,
-      { isVerifiedByUser: true, isReported: false },
-      { new: true }
-    );
-
-    res.json({ message: "Marked as safe", log });
-
-  } catch (err) {
-    res.status(500).json({ message: "Error marking safe" });
-  }
+  const log = await LoginLog.findByIdAndUpdate(
+    req.body.logId,
+    { isVerifiedByUser: true, isReported: false },
+    { new: true }
+  );
+  res.json(log);
 });
 
-/* ===================================================== */
-/* ================= REPORT ATTACK ======================= */
-/* ===================================================== */
 router.post("/report-attack", async (req, res) => {
-  try {
-    const { logId } = req.body;
+  const log = await LoginLog.findByIdAndUpdate(
+    req.body.logId,
+    { isReported: true, isVerifiedByUser: false },
+    { new: true }
+  );
 
-    const log = await LoginLog.findByIdAndUpdate(
-      logId,
-      { isReported: true, isVerifiedByUser: false },
-      { new: true }
-    );
+  await transporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: process.env.EMAIL_USER,
+    subject: "🚨 Suspicious Login",
+    html: `
+      <p>Email: ${log.email}</p>
+      <p>IP: ${log.ipAddress}</p>
+    `,
+  });
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER,
-      subject: "🚨 Suspicious Login Reported",
-      html: `
-        <h3>Alert!</h3>
-        <p>User reported suspicious login</p>
-        <p>Email: ${log.email}</p>
-        <p>IP: ${log.ipAddress}</p>
-        <p>Location: ${log.country}</p>
-      `,
-    });
-
-    res.json({ message: "Reported successfully", log });
-
-  } catch (err) {
-    res.status(500).json({ message: "Error reporting attack" });
-  }
+  res.json(log);
 });
 
-/* ===================================================== */
-/* ================= SIMULATE ATTACK ===================== */
-/* ===================================================== */
-router.post("/simulate-attack", async (req, res) => {
-  try {
-    const fakeLogs = [];
-
-    for (let i = 0; i < 10; i++) {
-      fakeLogs.push({
-        email: `attacker${i}@gmail.com`,
-        role: "attacker",
-        ipAddress: `192.168.1.${i}`,
-        country: "Unknown",
-        state: "Unknown",
-        latitude: null,
-        longitude: null,
-        device: "Bot",
-        browser: "Script",
-        os: "Unknown",
-        status: "failed",
-        riskScore: 80,
-        isAnomaly: true,
-        isVerifiedByUser: false,
-        isReported: false,
-      });
-    }
-
-    await LoginLog.insertMany(fakeLogs);
-
-    res.json({ message: "Attack simulated" });
-
-  } catch (err) {
-    res.status(500).json({ message: "Simulation failed" });
-  }
-});
-
-/* ===================================================== */
-/* ================= UPDATE PROFILE ====================== */
-/* ===================================================== */
-router.put("/update-profile", async (req, res) => {
-  try {
-    const { name, email, phone, department } = req.body;
-
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    user.name = name || user.name;
-    user.phone = phone || user.phone;
-    user.department = department || user.department;
-
-    await user.save();
-
-    res.json({
-      message: "Profile updated successfully",
-      user,
-    });
-
-  } catch (err) {
-    res.status(500).json({ message: "Update failed" });
-  }
-});
-
+/* ================= EXPORT ================= */
 module.exports = router;

@@ -11,6 +11,7 @@ const LoginLogSchema = new mongoose.Schema(
     email: {
       type: String,
       trim: true,
+      required: true,
     },
 
     role: {
@@ -46,10 +47,12 @@ const LoginLogSchema = new mongoose.Schema(
 
     /* ================= DEVICE INFO ================= */
 
-    // ✅ FIXED: stable device tracking
+    // ✅ IMPORTANT: Must be stable from frontend (localStorage)
     deviceId: {
       type: String,
+      required: true,
       default: "unknown-device",
+      index: true,
     },
 
     device: {
@@ -124,7 +127,7 @@ const LoginLogSchema = new mongoose.Schema(
     /* ================= USER ACTION ================= */
     isVerifiedByUser: {
       type: Boolean,
-      default: null, // null = not reviewed
+      default: null,
     },
 
     isReported: {
@@ -137,14 +140,14 @@ const LoginLogSchema = new mongoose.Schema(
 
 /* ================= INDEXES ================= */
 
-// 🔥 Fast queries
+// Fast queries
 LoginLogSchema.index({ email: 1 });
 LoginLogSchema.index({ createdAt: -1 });
 
-// 🔥 Device tracking (fixed)
-LoginLogSchema.index({ deviceId: 1 }, { sparse: true });
+// 🔥 Device tracking
+LoginLogSchema.index({ deviceId: 1 });
 
-// 🔥 Detect same user + same device
+// 🔥 Same user + same device detection (IMPORTANT)
 LoginLogSchema.index({ email: 1, deviceId: 1 });
 
 module.exports = mongoose.model("LoginLog", LoginLogSchema);

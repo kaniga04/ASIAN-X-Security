@@ -27,12 +27,14 @@ const transporter = nodemailer.createTransport({
 
 /* ================= HELPERS ================= */
 
+// ✅ Get real client IP
 const getClientIP = (req) => {
   const forwarded = req.headers["x-forwarded-for"];
   if (forwarded) return forwarded.split(",")[0];
   return req.socket?.remoteAddress || req.ip;
 };
 
+// ✅ Extract device info
 const getDeviceInfo = (req) => {
   const parser = new UAParser(req.headers["user-agent"]);
   const device = parser.getDevice();
@@ -84,7 +86,7 @@ router.post("/register", async (req, res) => {
 /* ================= LOGIN ================= */
 router.post("/login", async (req, res) => {
   try {
-    const { email, password, deviceId } = req.body;
+    let { email, password, deviceId } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ message: "Email & password required" });
@@ -105,6 +107,13 @@ router.post("/login", async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid credentials" });
+    }
+
+    /* ================= DEVICE ID FIX ================= */
+
+    // 🔥 CRITICAL FIX: ensure deviceId is stable
+    if (!deviceId || deviceId === "undefined" || deviceId === "null") {
+      deviceId = "unknown-device";
     }
 
     /* ================= GEO + DEVICE ================= */
@@ -128,7 +137,7 @@ router.post("/login", async (req, res) => {
       user,
       loginData: {
         device: deviceInfo.device,
-        deviceId: deviceId || "unknown", // ✅ fallback safety
+        deviceId, // ✅ SAME DEVICE ID PASSED
         state,
         latitude,
         longitude,
@@ -153,7 +162,7 @@ router.post("/login", async (req, res) => {
       browser: deviceInfo.browser,
       os: deviceInfo.os,
 
-      deviceId: deviceId || "unknown", // ✅ IMPORTANT
+      deviceId, // ✅ FINAL FIX
 
       status: "success",
 

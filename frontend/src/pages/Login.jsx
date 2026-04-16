@@ -7,7 +7,13 @@ import { motion } from "framer-motion";
 const Login = () => {
   const navigate = useNavigate();
 
-  // ✅ API URL (ENV SAFE)
+  // ✅ Generate or get deviceId (ONLY ONCE)
+  const deviceId =
+    localStorage.getItem("deviceId") || crypto.randomUUID();
+
+  localStorage.setItem("deviceId", deviceId);
+
+  // ✅ API URL
   const API_URL =
     process.env.REACT_APP_API_URL ||
     "https://asian-x-security.onrender.com";
@@ -22,67 +28,65 @@ const Login = () => {
 
   // ================= LOGIN =================
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError("");
-  setLoading(true);
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-  try {
-    // ✅ always lowercase email
-    const { data } = await axios.post(
-      `${API_URL}/api/auth/login`,
-      {
-        email: email.toLowerCase(),
-        password,
+    try {
+      const { data } = await axios.post(
+        `${API_URL}/api/auth/login`,
+        {
+          email: email.toLowerCase(),
+          password,
+          deviceId, // ✅🔥 IMPORTANT FIX (SEND DEVICE ID)
+        }
+      );
+
+      if (!data.token) {
+        setError("Login failed");
+        return;
       }
-    );
 
-    if (!data.token) {
-      setError("Login failed");
-      return;
+      // ✅ CLEAR OLD STORAGE
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("user");
+
+      // ✅ Store token
+      if (rememberMe) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+      } else {
+        sessionStorage.setItem("token", data.token);
+        sessionStorage.setItem("user", JSON.stringify(data.user));
+      }
+
+      // ✅ Redirect
+      if (data.user.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/user");
+      }
+
+    } catch (err) {
+      const message =
+        err.response?.data?.message ||
+        "Invalid email or password";
+
+      if (message.toLowerCase().includes("verify")) {
+        setError("⚠️ Please verify your email using OTP before login");
+      } else if (message.toLowerCase().includes("invalid")) {
+        setError("❌ Incorrect email or password");
+      } else {
+        setError(message);
+      }
+
+    } finally {
+      setLoading(false);
     }
+  };
 
-    // ✅ CLEAR OLD STORAGE (IMPORTANT)
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    sessionStorage.removeItem("token");
-    sessionStorage.removeItem("user");
-
-    // ✅ Store token
-    if (rememberMe) {
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-    } else {
-      sessionStorage.setItem("token", data.token);
-      sessionStorage.setItem("user", JSON.stringify(data.user));
-    }
-
-    // ✅ Redirect properly
-    if (data.user.role === "admin") {
-      navigate("/admin");
-    } else {
-      navigate("/user");
-    }
-
-  } catch (err) {
-    const message =
-      err.response?.data?.message ||
-      "Invalid email or password";
-
-    // ✅ BETTER ERROR HANDLING
-    if (message.toLowerCase().includes("verify")) {
-      setError("⚠️ Please verify your email using OTP before login");
-    } else if (message.toLowerCase().includes("invalid")) {
-      setError("❌ Incorrect email or password");
-    } else if (message.toLowerCase().includes("not properly")) {
-      setError("⚠️ Complete OTP verification first");
-    } else {
-      setError(message);
-    }
-
-  } finally {
-    setLoading(false);
-  }
-};
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-100 via-blue-100 to-purple-100 relative px-4">
 
@@ -196,17 +200,6 @@ const Login = () => {
               }`}
             >
               {loading ? "Signing In..." : "Sign In to Dashboard"}
-            </button>
-
-            {/* Google Login */}
-            <button
-              type="button"
-              onClick={() =>
-                window.location.href = `${API_URL}/api/auth/google`
-              }
-              className="w-full bg-red-500 hover:bg-red-600 text-white p-2 rounded mt-3"
-            >
-              Continue with Google
             </button>
 
           </form>

@@ -111,10 +111,12 @@ router.post("/login", async (req, res) => {
 
     /* ================= DEVICE ID FIX ================= */
 
-    // 🔥 CRITICAL FIX: ensure deviceId is stable
+    // ✅ FINAL FIX: ensure stable deviceId
     if (!deviceId || deviceId === "undefined" || deviceId === "null") {
       deviceId = "unknown-device";
     }
+
+    console.log("📥 Login Device ID:", deviceId);
 
     /* ================= GEO + DEVICE ================= */
     const ip = getClientIP(req);
@@ -127,6 +129,19 @@ router.post("/login", async (req, res) => {
 
     const deviceInfo = getDeviceInfo(req);
 
+    /* ================= CHECK SAME DEVICE ================= */
+
+    const existingDevice = await LoginLog.findOne({
+      email: user.email,
+      deviceId,
+    });
+
+    if (existingDevice) {
+      console.log("✅ Known device login");
+    } else {
+      console.log("⚠️ New device detected");
+    }
+
     /* ================= RECENT LOGS ================= */
     const recentLogs = await LoginLog.find({ email: user.email })
       .sort({ createdAt: -1 })
@@ -137,7 +152,7 @@ router.post("/login", async (req, res) => {
       user,
       loginData: {
         device: deviceInfo.device,
-        deviceId, // ✅ SAME DEVICE ID PASSED
+        deviceId,
         state,
         latitude,
         longitude,
@@ -162,7 +177,7 @@ router.post("/login", async (req, res) => {
       browser: deviceInfo.browser,
       os: deviceInfo.os,
 
-      deviceId, // ✅ FINAL FIX
+      deviceId,
 
       status: "success",
 
@@ -199,6 +214,16 @@ router.post("/login", async (req, res) => {
   } catch (err) {
     console.error("LOGIN ERROR:", err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+/* ================= LOGOUT (FIX 404 ERROR) ================= */
+router.post("/logout", async (req, res) => {
+  try {
+    // No backend logic needed for JWT logout
+    res.json({ message: "Logged out successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Logout error" });
   }
 });
 

@@ -7,18 +7,38 @@ const LoginLogSchema = new mongoose.Schema(
       ref: "User",
     },
 
-    email: String,
-    role: String,
+    /* ================= BASIC INFO ================= */
+    email: {
+      type: String,
+      trim: true,
+    },
+
+    role: {
+      type: String,
+      trim: true,
+    },
 
     /* ================= NETWORK INFO ================= */
-    ipAddress: String,
-    country: String,
-    state: String,
+    ipAddress: {
+      type: String,
+      trim: true,
+    },
+
+    country: {
+      type: String,
+      trim: true,
+    },
+
+    state: {
+      type: String,
+      trim: true,
+    },
 
     latitude: {
       type: Number,
       default: null,
     },
+
     longitude: {
       type: Number,
       default: null,
@@ -26,10 +46,10 @@ const LoginLogSchema = new mongoose.Schema(
 
     /* ================= DEVICE INFO ================= */
 
-    // 🔥 NEW: UNIQUE DEVICE ID
+    // ✅ FIXED: stable device tracking
     deviceId: {
       type: String,
-      default: null,
+      default: "unknown-device",
     },
 
     device: {
@@ -48,14 +68,13 @@ const LoginLogSchema = new mongoose.Schema(
     },
 
     /* ================= LOGIN STATUS ================= */
-
     status: {
       type: String,
+      enum: ["success", "failed"],
       default: "success",
     },
 
     /* ================= RISK ================= */
-
     riskScore: {
       type: Number,
       default: 0,
@@ -74,27 +93,28 @@ const LoginLogSchema = new mongoose.Schema(
     },
 
     /* ================= MITRE ================= */
-
     mitreTactic: String,
     mitreTechnique: String,
     mitreTechniqueId: String,
     anomalyReason: String,
 
     /* ================= THREAT EXPLANATION ================= */
-
     threatExplanation: {
       title: {
         type: String,
         default: "Login Analysis",
       },
+
       riskLevel: {
         type: String,
         default: "Normal",
       },
+
       reasons: {
         type: [String],
         default: [],
       },
+
       recommendations: {
         type: [String],
         default: [],
@@ -102,10 +122,9 @@ const LoginLogSchema = new mongoose.Schema(
     },
 
     /* ================= USER ACTION ================= */
-
     isVerifiedByUser: {
       type: Boolean,
-      default: null,
+      default: null, // null = not reviewed
     },
 
     isReported: {
@@ -118,11 +137,14 @@ const LoginLogSchema = new mongoose.Schema(
 
 /* ================= INDEXES ================= */
 
-// 🔥 Faster queries
+// 🔥 Fast queries
 LoginLogSchema.index({ email: 1 });
 LoginLogSchema.index({ createdAt: -1 });
 
-// 🔥 NEW: device tracking
-LoginLogSchema.index({ deviceId: 1 });
+// 🔥 Device tracking (fixed)
+LoginLogSchema.index({ deviceId: 1 }, { sparse: true });
+
+// 🔥 Detect same user + same device
+LoginLogSchema.index({ email: 1, deviceId: 1 });
 
 module.exports = mongoose.model("LoginLog", LoginLogSchema);

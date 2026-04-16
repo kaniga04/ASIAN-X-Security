@@ -59,7 +59,6 @@ router.post("/register", async (req, res) => {
     }
 
     let user = await User.findOne({ email });
-
     if (user) {
       return res.status(400).json({ message: "User already exists" });
     }
@@ -76,9 +75,8 @@ router.post("/register", async (req, res) => {
     await user.save();
 
     res.json({ message: "Registered successfully" });
-
   } catch (err) {
-    console.error(err);
+    console.error("REGISTER ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -86,7 +84,7 @@ router.post("/register", async (req, res) => {
 /* ================= LOGIN ================= */
 router.post("/login", async (req, res) => {
   try {
-    const { email, password, deviceId } = req.body; // ✅ NEW
+    const { email, password, deviceId } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ message: "Email & password required" });
@@ -100,7 +98,6 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Verify your email first" });
     }
 
-    // 🔥 BLOCK CHECK
     if (user.isBlocked) {
       return res.status(403).json({ message: "User is blocked by admin" });
     }
@@ -110,7 +107,7 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    /* GEO + DEVICE */
+    /* ================= GEO + DEVICE ================= */
     const ip = getClientIP(req);
     const geo = geoip.lookup(ip);
 
@@ -121,17 +118,17 @@ router.post("/login", async (req, res) => {
 
     const deviceInfo = getDeviceInfo(req);
 
-    /* RECENT LOGS */
+    /* ================= RECENT LOGS ================= */
     const recentLogs = await LoginLog.find({ email: user.email })
       .sort({ createdAt: -1 })
       .limit(20);
 
-    /* RISK ENGINE */
+    /* ================= RISK ENGINE ================= */
     const risk = await calculateRiskScore({
       user,
       loginData: {
         device: deviceInfo.device,
-        deviceId, // ✅ IMPORTANT
+        deviceId: deviceId || "unknown", // ✅ fallback safety
         state,
         latitude,
         longitude,
@@ -140,7 +137,7 @@ router.post("/login", async (req, res) => {
       recentLogs,
     });
 
-    /* SAVE LOG */
+    /* ================= SAVE LOG ================= */
     await LoginLog.create({
       userId: user._id,
       email: user.email,
@@ -152,9 +149,11 @@ router.post("/login", async (req, res) => {
       latitude,
       longitude,
 
-      ...deviceInfo,
+      device: deviceInfo.device,
+      browser: deviceInfo.browser,
+      os: deviceInfo.os,
 
-      deviceId, // ✅ STORE THIS
+      deviceId: deviceId || "unknown", // ✅ IMPORTANT
 
       status: "success",
 
@@ -170,7 +169,7 @@ router.post("/login", async (req, res) => {
       },
     });
 
-    /* TOKEN */
+    /* ================= TOKEN ================= */
     const token = jwt.sign(
       { id: user._id, role: user.role },
       SECRET,
@@ -189,7 +188,7 @@ router.post("/login", async (req, res) => {
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("LOGIN ERROR:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -244,11 +243,11 @@ router.post("/report-attack", async (req, res) => {
     html: `
       <p>Email: ${log.email}</p>
       <p>IP: ${log.ipAddress}</p>
+      <p>Device ID: ${log.deviceId}</p>
     `,
   });
 
   res.json(log);
 });
 
-/* ================= EXPORT ================= */
 module.exports = router;

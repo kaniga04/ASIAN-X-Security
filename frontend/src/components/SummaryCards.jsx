@@ -1,72 +1,38 @@
-import React from "react";
-import { Users, LogIn, AlertTriangle, ShieldAlert, XCircle } from "lucide-react";
+import React from 'react';
+import { Users, Activity, AlertTriangle, Shield } from 'lucide-react';
 
 const SummaryCards = ({ logs, users }) => {
-
-  const totalUsers = users.length;
-  const totalLogins = logs.length;
-  const anomalies = logs.filter((l) => l.isAnomaly).length;
-  const failed = logs.filter((l) => l.status === "failed").length;
-  const highRisk = logs.filter((l) => l.riskScore >= 70).length;
+  // EXTREME SAFETY CHECKS
+  const logsArray = logs && Array.isArray(logs) ? logs : [];
+  const usersArray = users && Array.isArray(users) ? users : [];
+  
+  const totalLogins = logsArray.length;
+  const highRiskLogins = logsArray.filter(l => l && (l.riskScore || 0) >= 70).length;
+  const anomalies = logsArray.filter(l => l && l.isAnomaly === true).length;
+  const totalUsers = usersArray.length;
 
   const cards = [
-    {
-      title: "Total Users",
-      value: totalUsers,
-      icon: <Users size={28} />,
-      color: "bg-blue-100 text-blue-600"
-    },
-    {
-      title: "Total Logins",
-      value: totalLogins,
-      icon: <LogIn size={28} />,
-      color: "bg-green-100 text-green-600"
-    },
-    {
-      title: "Failed Logins",
-      value: failed,
-      icon: <XCircle size={28} />,
-      color: "bg-red-100 text-red-600"
-    },
-    {
-      title: "Detected Anomalies",
-      value: anomalies,
-      icon: <AlertTriangle size={28} />,
-      color: "bg-yellow-100 text-yellow-600"
-    },
-    {
-      title: "High Risk Accounts",
-      value: highRisk,
-      icon: <ShieldAlert size={28} />,
-      color: "bg-purple-100 text-purple-600"
-    }
+    { label: 'Total Users', value: totalUsers, icon: Users, color: 'bg-blue-500' },
+    { label: 'Total Logins', value: totalLogins, icon: Activity, color: 'bg-green-500' },
+    { label: 'High Risk', value: highRiskLogins, icon: AlertTriangle, color: 'bg-red-500' },
+    { label: 'Anomalies', value: anomalies, icon: Shield, color: 'bg-purple-500' },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-
-      {cards.map((card, index) => (
-        <div
-          key={index}
-          className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 flex items-center justify-between hover:shadow-md transition"
-        >
-          
-          <div>
-            <p className="text-sm text-gray-500">{card.title}</p>
-            <h3 className="text-2xl font-bold text-gray-800 mt-1">
-              {card.value}
-            </h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {cards.map((card, idx) => (
+        <div key={idx} className="bg-white rounded-xl shadow-md p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-500 text-sm">{card.label}</p>
+              <p className="text-3xl font-bold text-gray-800 mt-2">{card.value}</p>
+            </div>
+            <div className={`${card.color} p-3 rounded-lg`}>
+              <card.icon className="w-6 h-6 text-white" />
+            </div>
           </div>
-
-          <div
-            className={`p-3 rounded-lg ${card.color}`}
-          >
-            {card.icon}
-          </div>
-
         </div>
       ))}
-
     </div>
   );
 };

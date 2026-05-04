@@ -1,68 +1,60 @@
-import React from "react";
+import React from 'react';
 
-function LoginTable({ logs }) {
+const LoginTable = ({ logs = [] }) => {
+  const safeLogs = Array.isArray(logs) ? logs : [];
+  
+  const getRiskBadge = (level) => {
+    const colors = {
+      Low: 'bg-green-100 text-green-700',
+      Medium: 'bg-yellow-100 text-yellow-700',
+      High: 'bg-orange-100 text-orange-700',
+      Critical: 'bg-red-100 text-red-700'
+    };
+    return colors[level] || 'bg-gray-100 text-gray-700';
+  };
+
+  if (safeLogs.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        No login data available
+      </div>
+    );
+  }
+
   return (
-    <div className="overflow-x-auto bg-white rounded-xl shadow">
-
-      <table className="min-w-full text-sm text-left border border-gray-200 rounded-lg">
-
-        <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
-          <tr>
-            <th className="px-4 py-3">User</th>
-            <th className="px-4 py-3">IP</th>
-            <th className="px-4 py-3">Status</th>
-            <th className="px-4 py-3">Risk Score</th>
+    <table className="w-full text-sm">
+      <thead className="bg-gray-50 sticky top-0">
+        <tr>
+          <th className="px-4 py-3 text-left text-gray-600">Email</th>
+          <th className="px-4 py-3 text-left text-gray-600">Status</th>
+          <th className="px-4 py-3 text-left text-gray-600">Risk</th>
+          <th className="px-4 py-3 text-left text-gray-600">Time</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y">
+        {safeLogs.slice(0, 10).map((log) => (
+          <tr key={log._id || Math.random()} className="hover:bg-gray-50">
+            <td className="px-4 py-3">{log.email || 'N/A'}</td>
+            <td className="px-4 py-3">
+              <span className={`px-2 py-1 rounded-full text-xs ${
+                log.status === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              }`}>
+                {log.status || 'unknown'}
+              </span>
+            </td>
+            <td className="px-4 py-3">
+              <span className={`px-2 py-1 rounded-full text-xs ${getRiskBadge(log.riskLevel)}`}>
+                {log.riskLevel || 'Low'}
+              </span>
+            </td>
+            <td className="px-4 py-3 text-gray-500">
+              {log.createdAt ? new Date(log.createdAt).toLocaleTimeString() : 'N/A'}
+            </td>
           </tr>
-        </thead>
-
-        <tbody className="divide-y divide-gray-200">
-
-          {(!logs || logs.length === 0) ? (
-            <tr>
-              <td colSpan="4" className="text-center py-4 text-gray-500">
-                No login data available
-              </td>
-            </tr>
-          ) : (
-            logs.slice(0, 5).map((log) => (
-              <tr key={log._id} className="hover:bg-gray-50">
-
-                <td className="px-4 py-2">{log.email}</td>
-
-                <td className="px-4 py-2">
-                  {log.ipAddress?.split(",")[0].trim() || "N/A"}
-                </td>
-
-                <td className="px-4 py-2">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-semibold ${
-                      log.status === "success"
-                        ? "bg-green-100 text-green-600"
-                        : "bg-red-100 text-red-600"
-                    }`}
-                  >
-                    {log.status}
-                  </span>
-                </td>
-
-                <td className="px-4 py-2">
-                  <span className={`px-2 py-1 rounded text-xs font-semibold
-                    ${log.riskScore >= 80 ? "bg-red-200 text-red-700" :
-                      log.riskScore >= 50 ? "bg-yellow-200 text-yellow-700" :
-                      "bg-green-200 text-green-700"}`}>
-                    {log.riskScore}
-                  </span>
-                </td>
-
-              </tr>
-            ))
-          )}
-
-        </tbody>
-      </table>
-
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
-}
+};
 
 export default LoginTable;

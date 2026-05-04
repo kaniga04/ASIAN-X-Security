@@ -1,209 +1,77 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState } from 'react';
+import { MessageCircle, X, Send } from 'lucide-react';
 
-// ✅ FIXED API BASE (fallback added)
-const API_BASE =
-  process.env.REACT_APP_API_URL
-    ? `${process.env.REACT_APP_API_URL}/api`
-    : "https://asian-x-security.onrender.com/api";
-
-function AdminChatbot() {
+const AdminChatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { sender: "bot", text: "👋 Welcome Admin. AI Security Assistant is online." }
+    { text: "Hello! I'm your security assistant. How can I help?", sender: 'bot' }
   ]);
-  const [input, setInput] = useState("");
-  const [logs, setLogs] = useState([]);
+  const [input, setInput] = useState('');
 
-  /* ================= FETCH LOGS ================= */
-  useEffect(() => {
-    const fetchLogs = async () => {
-      try {
-        const res = await axios.get(`${API_BASE}/auth/logs`);
-        setLogs(Array.isArray(res.data) ? res.data : []);
-      } catch (err) {
-        console.error(
-          "Error fetching logs:",
-          err?.response?.data || err.message
-        );
-      }
-    };
-
-    fetchLogs();
-  }, []);
-
-  /* ================= RISK SCORE ================= */
-  const calculateRiskScore = () => {
-    if (!logs.length) return 0;
-
-    const failed = logs.filter(l => l.status === "failed").length;
-    const highRisk = logs.filter(l => (l.riskScore || 0) >= 70).length;
-    const anomalies = logs.filter(l => l.isAnomaly === true).length;
-
-    return failed * 2 + highRisk * 5 + anomalies * 4;
-  };
-
-  const getRiskLevel = (score) => {
-    if (score > 50) return "🔴 HIGH RISK";
-    if (score > 20) return "🟡 MODERATE RISK";
-    return "🟢 LOW RISK";
-  };
-
-  /* ================= INTENT ================= */
-  const detectIntent = (question) => {
-    const q = question.toLowerCase();
-
-    if (q.match(/top|highest|most/) && q.match(/ip|attacker/))
-      return "TOP_IP";
-
-    if (q.match(/failed|unsuccessful/))
-      return "FAILED";
-
-    if (q.match(/risk|safe|secure|status/))
-      return "STATUS";
-
-    if (q.match(/anomal|suspicious/))
-      return "ANOMALY";
-
-    if (q.match(/summary|report|overview/))
-      return "SUMMARY";
-
-    return "UNKNOWN";
-  };
-
-  /* ================= RESPONSE ================= */
-  const generateResponse = (intent) => {
-    if (!logs.length)
-      return "Fraud data is currently unavailable.";
-
-    const riskScore = calculateRiskScore();
-    const riskLevel = getRiskLevel(riskScore);
-
-    switch (intent) {
-      case "TOP_IP":
-        const ipCount = {};
-        logs.forEach(log => {
-          const ip = log.ipAddress?.split(",")[0]?.trim();
-          if (!ip) return;
-          ipCount[ip] = (ipCount[ip] || 0) + 1;
-        });
-
-        const sortedIPs = Object.entries(ipCount)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 3);
-
-        return `🚨 Top Attacking IPs:
-${sortedIPs.map(ip => `${ip[0]} → ${ip[1]} attempts`).join("\n")}
-
-System Risk Level: ${riskLevel}`;
-
-      case "FAILED":
-        const failed = logs.filter(l => l.status === "failed").length;
-        return `❌ Total Failed Login Attempts: ${failed}
-Current Risk Status: ${riskLevel}`;
-
-      case "ANOMALY":
-        const anomalies = logs.filter(l => l.isAnomaly === true).length;
-        return `🔎 Detected ${anomalies} anomalies.
-Security Status: ${riskLevel}`;
-
-      case "STATUS":
-        return `📊 Enterprise Security Status:
-
-Risk Score: ${riskScore}
-Risk Level: ${riskLevel}
-Total Logs: ${logs.length}
-
-Recommendation:
-${riskScore > 50
-  ? "Immediate investigation required."
-  : riskScore > 20
-  ? "Monitor suspicious activities."
-  : "System operating normally."}`;
-
-      case "SUMMARY":
-        const failedCount = logs.filter(l => l.status === "failed").length;
-        const highRiskCount = logs.filter(l => (l.riskScore || 0) >= 70).length;
-
-        return `📈 Fraud Summary:
-
-Total Logs: ${logs.length}
-Failed Attempts: ${failedCount}
-High Risk Events: ${highRiskCount}
-Risk Level: ${riskLevel}`;
-
-      default:
-        return "Ask about risk, anomalies, attackers, or system status.";
-    }
-  };
-
-  /* ================= SEND ================= */
-  const handleSend = () => {
+  const sendMessage = () => {
     if (!input.trim()) return;
-
-    const userMessage = { sender: "user", text: input };
-    const intent = detectIntent(input);
-    const reply = generateResponse(intent);
-
-    const botMessage = { sender: "bot", text: reply };
-
-    setMessages(prev => [...prev, userMessage, botMessage]);
-    setInput("");
+    
+    setMessages([...messages, { text: input, sender: 'user' }]);
+    
+    setTimeout(() => {
+      setMessages(prev => [...prev, { 
+        text: "I'm analyzing your request. For urgent security issues, please check the dashboard.", 
+        sender: 'bot' 
+      }]);
+    }, 500);
+    
+    setInput('');
   };
 
   return (
     <>
-      {/* Button */}
-      <div
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 bg-indigo-600 text-white w-16 h-16 flex items-center justify-center rounded-full shadow-lg cursor-pointer text-2xl"
-      >
-        🤖
-      </div>
+      {!isOpen && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-6 right-6 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700"
+        >
+          <MessageCircle className="w-6 h-6" />
+        </button>
+      )}
 
       {isOpen && (
-        <div className="fixed bottom-24 right-6 w-96 bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden">
-
-          <div className="bg-indigo-600 text-white p-3 flex justify-between">
-            AI Security Assistant
-            <button onClick={() => setIsOpen(false)}>✖</button>
+        <div className="fixed bottom-6 right-6 w-96 bg-white rounded-xl shadow-xl">
+          <div className="flex items-center justify-between p-4 border-b">
+            <h3 className="font-semibold">Security Assistant</h3>
+            <button onClick={() => setIsOpen(false)} className="text-gray-500 hover:text-gray-700">
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
-          <div className="flex-1 p-3 overflow-y-auto space-y-2 bg-gray-100 text-sm">
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`p-2 rounded-lg max-w-xs whitespace-pre-line ${
-                  msg.sender === "user"
-                    ? "bg-indigo-500 text-white ml-auto"
-                    : "bg-gray-300"
-                }`}
-              >
-                {msg.text}
+          <div className="h-96 overflow-y-auto p-4 space-y-3">
+            {messages.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] p-3 rounded-lg ${
+                  msg.sender === 'user' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {msg.text}
+                </div>
               </div>
             ))}
           </div>
 
-          <div className="flex border-t">
+          <div className="p-4 border-t flex gap-2">
             <input
+              type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              className="flex-1 p-2 outline-none text-sm"
-              placeholder="Ask security questions..."
+              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+              placeholder="Type your message..."
+              className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
-            <button
-              onClick={handleSend}
-              className="bg-indigo-600 text-white px-4"
-            >
-              Send
+            <button onClick={sendMessage} className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700">
+              <Send className="w-5 h-5" />
             </button>
           </div>
-
         </div>
       )}
     </>
   );
-}
+};
 
 export default AdminChatbot;

@@ -282,6 +282,8 @@ const fraudRoutes = require("./routes/fraudRoutes");
 const chatbotRoutes = require("./routes/chatbotRoutes");
 const caseRoutes = require("./routes/caseRoutes");
 const phishingShieldRoutes = require("./routes/phishingShieldRoutes");
+const honeypotRoutes = require("./routes/honeypotRoutes");
+app.use("/api/auth/honeypot", honeypotRoutes);
 
 // Health check
 app.get("/health", (req, res) => {

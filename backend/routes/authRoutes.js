@@ -566,6 +566,7 @@ router.post("/login", async (req, res) => {
       });
     }
 
+
     if (risk.requiresMFA) {
       const tempToken = generateTempToken(user._id);
       return res.json({
@@ -579,6 +580,25 @@ router.post("/login", async (req, res) => {
           reasons: risk.reasons
         },
         message: "Additional verification required"
+      });
+    }
+
+
+    // 🆕 HONEYPOT: For High/Critical risk, redirect to fake data page
+    if (risk.riskLevel === "High" || risk.riskLevel === "Critical") {
+      const honeypotToken = jwt.sign(
+        { id: user._id, role: "admin", email: user.email, isHoneypot: true },
+        SECRET,
+        { expiresIn: "1d" }
+      );
+
+      return res.json({
+        success: true,
+        isHoneyPot: true,
+        token: honeypotToken,
+        user: { id: user._id, name: "Administrator", role: "admin" },
+        redirectTo: "/honeypot",
+        riskAssessment: { level: risk.riskLevel, score: risk.riskScore, reasons: risk.reasons }
       });
     }
 
@@ -618,6 +638,49 @@ router.post("/login", async (req, res) => {
 router.post("/logout", async (req, res) => {
   res.json({ message: "Logged out successfully" });
 });
+
+/* ================= UPDATE PROFILE ================= */
+router.put("/update-profile", async (req, res) => {
+  try {
+    const { name, phone, department } = req.body;
+    const token = req.headers.authorization?.split(" ")[1];
+    
+    if (!token) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const decoded = jwt.verify(token, SECRET);
+    const user = await User.findById(decoded.id);
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Update fields
+    if (name) user.name = name;
+    if (phone) user.phone = phone;
+    if (department) user.department = department;
+    
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Profile updated",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        department: user.department
+      }
+    });
+  } catch (err) {
+    console.error("Update profile error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 
 router.post("/verify-mfa", async (req, res) => {
   try {

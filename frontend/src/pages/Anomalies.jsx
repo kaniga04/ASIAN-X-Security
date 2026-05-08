@@ -3,7 +3,7 @@ import axios from "axios";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import { 
-  AlertTriangle, Shield, Search, Filter, X, CheckCircle, 
+  AlertTriangle, Shield, Search, X, CheckCircle, 
   Eye, MapPin, Clock, Monitor, Key
 } from "lucide-react";
 

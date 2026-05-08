@@ -1,12 +1,7 @@
 import React, { useState } from "react";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
-import { 
-  HelpCircle, Book, MessageSquare, ChevronDown, ChevronUp,
-  Search, Play, FileText, Mail, Phone, Clock, Shield,
-  AlertTriangle, Activity, Users, Key, Globe, Zap, Star,
-  Send, CheckCircle, ThumbsUp, ThumbsDown
-} from "lucide-react";
+import { HelpCircle, Book, MessageSquare, ChevronDown, ChevronUp, Search, Play, FileText, Mail, Phone, Clock, Shield, AlertTriangle, Globe, Star, Send, CheckCircle, ThumbsUp, ThumbsDown } from "lucide-react";
 
 /* ================= FAQ DATA ================= */
 const faqs = [

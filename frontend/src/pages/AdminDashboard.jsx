@@ -8,8 +8,12 @@ import Topbar from "../components/Topbar";
 import LoginTable from "../components/LoginTable";
 import AdminChatbot from "../components/AdminChatbot";
 
-const API_BASE = "https://asian-x-security.onrender.com/api";
-const SOCKET_URL = "https://asian-x-security.onrender.com"; // or "http://localhost:5000" for local
+// Replace lines 14-15 with:
+const API_BASE = process.env.REACT_APP_API_URL 
+  ? `${process.env.REACT_APP_API_URL}/api` 
+  : "https://asian-x-security.onrender.com/api";
+
+const SOCKET_URL = process.env.REACT_APP_API_URL || "https://asian-x-security.onrender.com";
 
 function AdminDashboard() {
   const [logs, setLogs] = useState([]);
@@ -117,6 +121,19 @@ function AdminDashboard() {
         color: "bg-orange-50 border-orange-200"
       }, ...prev].slice(0, 10));
     });
+
+    socket.on("honeypot:triggered", (data) => {
+    setNotifications(prev => [{
+        id: Date.now(),
+        type: "honeypot",
+        icon: "🪤",
+        title: "HONEYPOT TRIGGERED!",
+        message: `${data.email} fell for the trap: ${data.action}`,
+        riskScore: 100,
+        timestamp: new Date(),
+        color: "bg-red-100 border-red-300"
+    }, ...prev].slice(0, 10));
+});
 
     // 🆕 Listen for server errors
     socket.on("server:error", (data) => {

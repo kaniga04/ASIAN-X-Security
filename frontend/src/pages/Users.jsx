@@ -4,6 +4,8 @@ import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
 import { Eye, UserX, Trash2 } from "lucide-react";
 
+const API_BASE = process.env.REACT_APP_API_URL || "https://asian-x-security.onrender.com";
+
 function Users() {
 
   const [users, setUsers] = useState([]);
@@ -24,7 +26,7 @@ function Users() {
   const fetchUsers = useCallback(async () => {
     try {
       const res = await axios.get(
-        "https://asian-x-security.onrender.com/api/auth/users",
+        `${API_BASE}/api/auth/users`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -49,7 +51,7 @@ function Users() {
       setDeletingId(id);
 
       await axios.delete(
-        `https://asian-x-security.onrender.com/api/auth/users/${id}`,
+        `${API_BASE}/api/auth/users/${id}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -71,7 +73,7 @@ function Users() {
       setBlockingId(id);
 
       await axios.put(
-        `https://asian-x-security.onrender.com/api/auth/users/block/${id}`,
+        `${API_BASE}/api/auth/users/block/${id}`,
         { isBlocked: !isBlocked },
         {
           headers: { Authorization: `Bearer ${token}` }

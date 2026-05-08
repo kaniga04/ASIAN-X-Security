@@ -19,6 +19,7 @@ import CSVAnalyzer from './pages/CSVAnalyzer';
 import Campaigns from './pages/Campaigns';
 import OAuthSuccess from './pages/OAuthSuccess';
 import LoginLogs from './pages/LoginLogs';
+import HoneyPotPage from './pages/HoneyPotPage';
 import './App.css';
 
 const ProtectedRoute = ({ children, allowedRole }) => {
@@ -62,6 +63,9 @@ function App() {
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/help" element={<HelpCenter />} />
+
+        {/*Honeypot*/}
+        <Route path="/honeypot" element={<HoneyPotPage />} />
         
         <Route path="/" element={<Navigate to="/login" />} />
         <Route path="*" element={<div className="min-h-screen flex items-center justify-center bg-gray-100"><div className="text-center"><h1 className="text-6xl font-bold text-gray-800 mb-4">404</h1><p className="text-gray-600 mb-6 text-lg">Page not found</p><a href="/" className="text-indigo-600 hover:underline font-medium">Go to Login</a></div></div>} />
